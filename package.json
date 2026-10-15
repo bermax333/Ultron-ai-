@@ -1,0 +1,8 @@
+{
+  "name": "ultron-ai",
+  "version": "1.4.0",
+  "private": false,
+  "description": "Independent desktop AI experiment with language selection, web research, voice interaction, and hand control.",
+  "main": "main.cjs",
+  "license": "MIT"
+}
