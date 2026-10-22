@@ -12,7 +12,7 @@ The PC receiver stays on loopback. Remote phone traffic is intended to reach it 
 4. Enter that URL and the PC's pairing code in the Android relay app.
 5. Connect the DJI Goggles N3 to the Galaxy phone with a USB-C data cable and open the DJI Fly live view.
 6. In ULTRON Relay, tap **DJI-Fly-Bild freigeben** and accept Android's screen-capture prompt. Switch back to DJI Fly. The PC page displays the incoming preview.
-7. After the flight, use DJI Fly QuickTransfer to copy the Neo's original MP4 to the phone. In ULTRON Relay choose **Neo-Video für 3D an ULTRON senden**. The PC runs the reconstruction locally and makes a PLY mesh available for download.
+7. After the flight, use DJI Fly QuickTransfer to copy the Neo's original MP4 to the phone. In ULTRON Relay choose **Neo-Video für 3D an ULTRON senden**. The PC runs the reconstruction locally, shows the PLY mesh in an interactive 3D viewer, and offers it for download.
 
 The relay does not control the aircraft. Flight control stays with the DJI FPV Remote Controller 3 and goggles.
 
@@ -45,7 +45,7 @@ The app requires Android 10 or later. Android asks for screen-capture permission
 
 - The first version sends screen frames as JPEG, up to 960 pixels on the longest edge and about six frames per second. It is a low-bandwidth preview, not a full-quality DJI video recording.
 - The live preview keeps only the latest frame in memory. Original videos selected for 3D processing are saved locally under `pc-relay/media/`; they are not sent to a cloud service. Files can be large (upload cap: 2 GB per video).
-- Video-to-3D is post-flight photogrammetry using COLMAP Structure-from-Motion and Multi-View Stereo. It extracts one frame every two seconds, then creates a mesh; it is not real-time reconstruction and does not infer unseen surfaces. The result is an unscaled PLY mesh, not a georeferenced map. A compatible PLY viewer such as MeshLab can open it. See COLMAP's [capture guidance](https://colmap.github.io/tutorial.html) for overlap, texture, and viewpoint recommendations.
+- Video-to-3D is post-flight photogrammetry using COLMAP Structure-from-Motion and Multi-View Stereo. It extracts one frame every two seconds, then creates a mesh; it is not real-time reconstruction and does not infer unseen surfaces. The result is an unscaled PLY mesh, not a georeferenced map. The ULTRON PC dashboard shows it in an interactive viewer (rotate, zoom, pan) and also offers the PLY download. See COLMAP's [capture guidance](https://colmap.github.io/tutorial.html) for overlap, texture, and viewpoint recommendations.
 - Reconstruction needs enough disk space and may take a long time. Default repository COLMAP builds generally do not include CUDA or AMD ROCm/HIP acceleration, so the CPU may do most of the work. See [COLMAP installation options](https://colmap.github.io/install.html).
 - A one-time code expires after five minutes and is limited to eight attempts. Pairing creates a random in-memory token. **Neuen Code anzeigen** on the PC revokes the old phone token.
 - The live view is shown in the local PC page. The Android relay app sends only the screen frames.
