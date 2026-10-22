@@ -15,7 +15,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.contract.ActivityResultContracts\nimport com.journeyapps.barcodescanner.ScanContract\nimport com.journeyapps.barcodescanner.ScanOptions
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -27,11 +27,33 @@ class MainActivity : ComponentActivity() {
     private lateinit var serverField: EditText
     private lateinit var pinField: EditText
     private lateinit var status: TextView
-    private lateinit var pairButton: Button
+    private lateinit var pairButton: Button\n    private lateinit var scanButton: Button
     private lateinit var startButton: Button
     private lateinit var videoButton: Button
     private var token: String? = null
     private var baseUrl: String = ""
+
+    private val qrScanner = registerForActivityResult(ScanContract()) { result ->
+        val contents = result.contents
+        if (contents == null) {
+            status.text = "QR-Scan abgebrochen."
+        } else {
+            try {
+                val payload = JSONObject(contents)
+                val url = payload.optString("url").trim().trimEnd('/')
+                val pin = payload.optString("pin").trim()
+                if (payload.optString("type") != "ultron-pair-v1" || !url.startsWith("https://") || pin.length != 6) {
+                    status.text = "Das ist kein gültiger ULTRON-Kopplungs-QR-Code."
+                } else {
+                    serverField.setText(url)
+                    pinField.setText(pin)
+                    pair()
+                }
+            } catch (_: Exception) {
+                status.text = "QR-Code konnte nicht gelesen werden."
+            }
+        }
+    }
 
     private val videoPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) uploadVideo(uri)
@@ -81,6 +103,13 @@ class MainActivity : ComponentActivity() {
             setHintTextColor(0xff8895a2.toInt())
         }
         root.addView(serverField, ViewGroup.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
+        scanButton = Button(this).apply {
+            text = "QR-Code scannen"
+            setOnClickListener {
+                qrScanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("ULTRON-QR-Code am PC scannen").setBeepEnabled(false).setOrientationLocked(false))
+            }
+        }
+        root.addView(scanButton)
         pinField = EditText(this).apply {
             hint = "6-stelliger Code vom ULTRON-PC"
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
