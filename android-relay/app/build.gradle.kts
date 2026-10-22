@@ -27,4 +27,5 @@ android {
 dependencies {
     implementation("androidx.activity:activity-ktx:1.10.0")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("org.opencv:opencv:4.10.0")
 }
