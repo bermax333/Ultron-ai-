@@ -154,12 +154,12 @@ $('micListen').onclick=async()=>{
 };
 </script>
 <script type="importmap">
-{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}
+{"imports":{"three":"/vendor/three.module.js"}}
 </script>
 <script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
-import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js';
-import { PLYLoader } from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/PLYLoader.js';
+import * as THREE from '/vendor/three.module.js';
+import { OrbitControls } from '/vendor/OrbitControls.js';
+import { PLYLoader } from '/vendor/PLYLoader.js';
 const host=document.getElementById('modelViewer');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x060a0f);
 const camera=new THREE.PerspectiveCamera(45,1,0.01,10000);camera.position.set(2.4,1.7,2.4);

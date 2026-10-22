@@ -21,7 +21,7 @@ The relay does not control the aircraft. Flight control stays with the DJI FPV R
 
 After the flight, use DJI Fly QuickTransfer to copy the Neo's original MP4 to the phone. In ULTRON Relay choose **Neo-Video für 3D an ULTRON senden**. FFmpeg extracts frames and COLMAP reconstructs a PLY mesh locally. The PC page shows an interactive viewer and offers the mesh for download. This is post-flight photogrammetry, not live 3D reconstruction or completion of unseen surfaces.
 
-For a good reconstruction, film the subject slowly from multiple overlapping angles, with good light and visible texture. The relay samples one frame per second to keep the COLMAP job manageable. Smooth or moving surfaces, fast pans, and short clips reduce quality. The browser's interactive PLY preview needs an internet connection to load Three.js from its CDN.
+For a good reconstruction, film the subject slowly from multiple overlapping angles, with good light and visible texture. The relay samples one frame per second to keep the COLMAP job manageable. Smooth or moving surfaces, fast pans, and short clips reduce quality. The interactive PLY preview loads its Three.js modules from the bundled PC files and works offline.
 
 ## Requirements and manual setup
 
@@ -43,7 +43,7 @@ The app requires Android 10 or later. Android asks for screen-capture permission
 
 ## Troubleshooting
 
-- The QR generator is bundled and served locally by the PC relay, so it does not depend on an external QR CDN. Open the PC dashboard at `http://127.0.0.1:8787`; scan its displayed private-Wi-Fi address from the phone.
+- The QR generator and Three.js viewer are bundled and served locally by the PC relay; neither depends on an external CDN. Open the PC dashboard at `http://127.0.0.1:8787`; scan its displayed private-Wi-Fi address from the phone.
 - For microphone streaming, pair first, start **Handy-Mikrofon an ULTRON senden** in the app, grant Android microphone access, then click **PC-Mikrofon hören** on the PC. Error messages now appear in the app and on the PC page. This streams the phone's microphone; it does not capture audio from the Neo or Goggles.
 - For 3D processing, start the PC with `bash start-ultron-no-admin.sh`, which installs FFmpeg and COLMAP in the user account. Choose the original MP4 after DJI Fly QuickTransfer. Use a slow clip with at least eight clear, overlapping views. The result is a PLY 3D mesh, not a GPS map.
 
