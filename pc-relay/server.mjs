@@ -15,7 +15,7 @@ const MAX_FRAME_BYTES = 900_000;
 const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
 const FRAME_INTERVAL_MS = 160;
 const MEDIA_DIR = path.join(ROOT, 'media');
-const jobs = new Map();
+const jobs = new Map();\nlet latestJobId = null;
 let pinAttempts = 0;
 let pinLockedUntil = 0;
 let pairing = newPairing();
@@ -160,8 +160,30 @@ const server = http.createServer(async (req, res) => {
         callback(size > MAX_VIDEO_BYTES ? Object.assign(new Error('Video größer als 2 GB.'), { status: 413 }) : null, chunk);
       } });
       await pipeline(req, limiter, fs.createWriteStream(videoPath, { flags: 'wx' }));
-      jobs.set(id, { id, state: 'uploaded', message: 'Video bereit.', videoPath, createdAt: Date.now() });
+      jobs.set(id, { id, state: 'uploaded', message: 'Video bereit.', videoPath, createdAt: Date.now() }); latestJobId = id;
       return json(res, 201, { id, state: 'uploaded' });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/video-phone') {
+      if (!isTailscaleRequest(req) || !authorized(req)) return json(res, 401, { error: 'Handy ist nicht gekoppelt oder Tailscale Serve fehlt.' });
+      if (!req.headers['content-type']?.startsWith('video/')) return json(res, 415, { error: 'Bitte eine MP4- oder MOV-Videodatei senden.' });
+      await fsp.mkdir(MEDIA_DIR, { recursive: true });
+      const id = crypto.randomUUID();
+      const videoPath = path.join(MEDIA_DIR, `${id}.mp4`);
+      let size = 0;
+      const limiter = new Transform({ transform(chunk, _encoding, callback) {
+        size += chunk.length;
+        callback(size > MAX_VIDEO_BYTES ? Object.assign(new Error('Video größer als 2 GB.'), { status: 413 }) : null, chunk);
+      } });
+      await pipeline(req, limiter, fs.createWriteStream(videoPath, { flags: 'wx' }));
+      const job = { id, state: 'queued', message: 'Video empfangen, starte die 3D-Rekonstruktion …', videoPath, createdAt: Date.now() };
+      jobs.set(id, job); latestJobId = id;
+      reconstruct(job).catch(error => { job.state = 'error'; job.message = error.message; });
+      return json(res, 202, { id, state: job.state });
+    }
+    if (req.method === 'GET' && url.pathname === '/api/3d/latest') {
+      if (!isLocal(req)) return json(res, 403, { error: '3D-Aufträge sind nur am PC sichtbar.' });
+      const job = latestJobId ? jobs.get(latestJobId) : null;
+      return json(res, 200, job ? { id: job.id, state: job.state, message: job.message, modelName: job.modelName || '' } : { state: 'idle', message: 'Noch kein 3D-Video empfangen.' });
     }
     if (req.method === 'POST' && url.pathname === '/api/reconstruct') {
       if (!isLocal(req)) return json(res, 403, { error: '3D-Aufträge können nur lokal am PC gestartet werden.' });
