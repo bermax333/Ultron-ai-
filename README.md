@@ -43,7 +43,7 @@ The app requires Android 10 or later. Android asks for screen-capture permission
 
 ## Troubleshooting
 
-- The QR generator and Three.js viewer are bundled and served locally by the PC relay; neither depends on an external CDN. Open the PC dashboard at `http://127.0.0.1:8787`; scan its displayed private-Wi-Fi address from the phone.
+- The QR generator and Three.js viewer are bundled and served locally by the PC relay, so QR creation and 3D preview work offline after extraction. Open the PC dashboard at `http://127.0.0.1:8787`; scan its displayed private-Wi-Fi address from the phone.
 - For microphone streaming, pair first, start **Handy-Mikrofon an ULTRON senden** in the app, grant Android microphone access, then click **PC-Mikrofon hören** on the PC. Error messages now appear in the app and on the PC page. This streams the phone's microphone; it does not capture audio from the Neo or Goggles.
 - For 3D processing, start the PC with `bash start-ultron-no-admin.sh`, which installs FFmpeg and COLMAP in the user account. Choose the original MP4 after DJI Fly QuickTransfer. Use a slow clip with at least eight clear, overlapping views. The result is a PLY 3D mesh, not a GPS map.
 
