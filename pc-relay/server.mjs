@@ -84,8 +84,7 @@ async function reconstruct(job) {
   await run(process.env.ULTRON_COLMAP || 'colmap', ['automatic_reconstructor', '--workspace_path', work, '--image_path', images, '--data_type', 'VIDEO', '--quality', 'MEDIUM', '--mesher', 'POISSON'], message => { if (message) job.message = message.slice(0, 240); });
   const candidates = [
     path.join(work, 'dense', '0', 'meshed-poisson.ply'),
-    path.join(work, 'dense', 'meshed-poisson.ply'),
-    path.join(work, 'dense', 'fused.ply')
+    path.join(work, 'dense', 'meshed-poisson.ply')
   ];
   let modelPath = null;
   for (const candidate of candidates) {
