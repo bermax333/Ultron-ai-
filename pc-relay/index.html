@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ULTRON · Neo Relay</title>
+<style>
+:root{color-scheme:dark;--bg:#080b10;--panel:#111923;--line:#293746;--red:#f43c4f;--muted:#a9b5c1}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#18202b,var(--bg) 55%);color:#edf3f8;font:15px system-ui,Arial;min-height:100vh}
+main{width:min(880px,100% - 28px);margin:28px auto}header{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{border:2px solid var(--red);border-radius:50%;color:var(--red);font-weight:900;font-size:24px;padding:3px 9px}.brand{font-size:20px;letter-spacing:3px;font-weight:900;color:var(--red)}.brand small{display:block;font-size:10px;letter-spacing:1px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr 1.35fr;gap:14px}.card{background:linear-gradient(145deg,#121a24,#0b1016);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 16px 42px #0005}h2{font-size:13px;letter-spacing:1px;color:var(--red);margin:0 0 12px}.pin{font-size:38px;letter-spacing:10px;font-weight:850;color:#fff;padding:16px 0}.muted{color:var(--muted);line-height:1.5;font-size:13px}.state{display:flex;align-items:center;gap:9px;margin-top:14px}.dot{width:10px;height:10px;border-radius:50%;background:#718091}.dot.on{background:#4de09b;box-shadow:0 0 12px #4de09b99}button{font:inherit;color:white;background:#8e1523;border:1px solid var(--red);border-radius:9px;padding:10px 13px;cursor:pointer;margin-top:14px}button:hover{background:#b01a2b}video, .frame{width:100%;aspect-ratio:16/9;background:#05070a;border:1px solid var(--line);border-radius:11px;object-fit:contain}#frame{display:none}#notice{margin-top:9px;color:var(--muted);font-size:12px}.instructions{margin-top:14px;padding:12px;border-radius:10px;background:#0a0f15;color:var(--muted);font-size:12px;line-height:1.6}.instructions b{color:#eff4f8}
+@media(max-width:680px){main{margin:16px auto}.grid{grid-template-columns:1fr}.pin{font-size:34px}}
+</style>
+</head>
+<body><main>
+<header><div class="logo">U</div><div class="brand">ULTRON<small>NEO VIDEO RELAY · LOKAL AUF DIESEM PC</small></div></header>
+<div class="grid">
+<section class="card"><h2>HANDY KOPPELN</h2><div class="muted">Gib diesen einmaligen Code in der ULTRON Relay-App auf deinem Galaxy A55 ein. Er läuft nach fünf Minuten ab.</div><div id="pin" class="pin">······</div><div class="state"><span id="pairedDot" class="dot"></span><span id="pairedText">Noch kein Handy verbunden</span></div><button id="rotate">Neuen Code anzeigen</button>
+<div class="instructions"><b>Für unterwegs:</b> Installiere und verbinde Tailscale auf PC und Handy. Öffne am PC ein Terminal und starte <code>tailscale serve 8787</code>. Gib die angezeigte HTTPS-Adresse in der Handy-App ein. ULTRON nutzt Serve innerhalb deines privaten Tailnets.</div>
+</section>
+<section class="card"><h2>DJI FLY LIVEBILD</h2><img id="frame" class="frame" alt="Livebild der DJI Fly App"><div id="placeholder" class="frame" style="display:grid;place-items:center;color:#718091">Warte auf den ersten Videoframe …</div><div id="notice">Die App überträgt den Bildschirm erst nach deiner Android-Freigabe.</div></section>
+</div></main>
+<script>
+const $=id=>document.getElementById(id);
+async function refresh(){
+  try{
+    const [pair,status]=await Promise.all([fetch('/api/pairing',{cache:'no-store'}).then(r=>r.json()),fetch('/api/status',{cache:'no-store'}).then(r=>r.json())]);
+    $('pin').textContent=pair.pin||'······';
+    $('pairedDot').classList.toggle('on',status.paired);
+    $('pairedText').textContent=status.paired?'Handy gekoppelt · '+(status.frameNumber?'Bild kommt an':'warte auf Videobild'):'Noch kein Handy verbunden';
+    if(status.frameNumber){
+      const response=await fetch('/api/frame?frame='+status.frameNumber,{cache:'no-store'});
+      if(response.ok){
+        const blob=await response.blob();
+        const old=$('frame').dataset.url;if(old)URL.revokeObjectURL(old);
+        const next=URL.createObjectURL(blob);$('frame').dataset.url=next;$('frame').src=next;
+        $('frame').style.display='block';$('placeholder').style.display='none';
+        $('notice').textContent='Videobild empfangen · Frame '+status.frameNumber;
+      }
+    }
+  }catch(_){$('pairedText').textContent='Relay-Server nicht erreichbar';}
+}
+$('rotate').onclick=async()=>{await fetch('/api/rotate-code',{method:'POST'});refresh()};
+refresh();setInterval(refresh,700);
+</script></body></html>
