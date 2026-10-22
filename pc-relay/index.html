@@ -10,20 +10,20 @@
 main{width:min(880px,100% - 28px);margin:28px auto}header{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{border:2px solid var(--red);border-radius:50%;color:var(--red);font-weight:900;font-size:24px;padding:3px 9px}.brand{font-size:20px;letter-spacing:3px;font-weight:900;color:var(--red)}.brand small{display:block;font-size:10px;letter-spacing:1px;color:var(--muted)}
 .pair-tools{display:grid;gap:7px;margin:12px 0}.pair-tools label{font-size:12px;color:var(--muted)}.pair-tools input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#080b10;color:#edf3f8}.pair-tools button{justify-self:start;margin:2px 0}.pair-tools #pairQr{width:236px;height:236px;max-width:100%;padding:8px;background:white;border-radius:8px;display:none;overflow:hidden}.pair-tools #pairQr canvas,.pair-tools #pairQr img{display:block;width:220px;height:220px}.grid{display:grid;grid-template-columns:1fr 1.35fr;gap:14px}.card{background:linear-gradient(145deg,#121a24,#0b1016);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 16px 42px #0005}h2{font-size:13px;letter-spacing:1px;color:var(--red);margin:0 0 12px}.pin{font-size:38px;letter-spacing:10px;font-weight:850;color:#fff;padding:16px 0}.muted{color:var(--muted);line-height:1.5;font-size:13px}.state{display:flex;align-items:center;gap:9px;margin-top:14px}.dot{width:10px;height:10px;border-radius:50%;background:#718091}.dot.on{background:#4de09b;box-shadow:0 0 12px #4de09b99}button{font:inherit;color:white;background:#8e1523;border:1px solid var(--red);border-radius:9px;padding:10px 13px;cursor:pointer;margin-top:14px}button:hover{background:#b01a2b}video, .frame{width:100%;aspect-ratio:16/9;background:#05070a;border:1px solid var(--line);border-radius:11px;object-fit:contain}#frame{display:none}#notice{margin-top:9px;color:var(--muted);font-size:12px}.instructions{margin-top:14px;padding:12px;border-radius:10px;background:#0a0f15;color:var(--muted);font-size:12px;line-height:1.6}.instructions b{color:#eff4f8}
 @media(max-width:680px){main{margin:16px auto}.grid{grid-template-columns:1fr}.pin{font-size:34px}}
-button:disabled{opacity:.55;cursor:wait}#modelViewer{display:none;height:430px;background:#060a0f;border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;margin:14px 0}#modelViewer canvas{width:100%;height:100%;display:block}.viewer-tools{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:8px}.viewer-tools button{margin:0;padding:7px 10px;font-size:12px;background:#111923dd}.viewer-hint{position:absolute;right:12px;bottom:10px;color:#a9b5c1;font-size:11px;background:#080b10aa;padding:5px 8px;border-radius:6px}input[type=file]{width:100%;margin:10px 0;color:var(--muted)}.reconstruct{margin-top:14px}.model-link{display:none;color:#6fe7aa;font-weight:700}.progress{height:7px;background:#202a35;border-radius:8px;margin-top:12px;overflow:hidden}.progress i{display:block;width:0;height:100%;background:#f43c4f;transition:width .4s}
+button:disabled{opacity:.55;cursor:wait}#modelViewer{display:none;height:430px;background:#060a0f;border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;margin:14px 0}#modelViewer canvas{width:100%;height:100%;display:block}.viewer-tools{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:8px}.viewer-tools button{margin:0;padding:7px 10px;font-size:12px;background:#111923dd}.viewer-hint{position:absolute;right:12px;bottom:10px;color:#a9b5c1;font-size:11px;background:#080b10aa;padding:5px 8px;border-radius:6px}input[type=file]{width:100%;margin:10px 0;color:var(--muted)}.drop-zone{display:block;border:1px dashed #526579;border-radius:12px;padding:14px 16px;margin:14px 0;background:#0a1119;color:#edf3f8;cursor:pointer}.drop-zone.dragging{border-color:#f43c4f;background:#1a1016}.drop-zone input{cursor:pointer}.reconstruct{margin-top:14px}.model-link{display:none;color:#6fe7aa;font-weight:700}.progress{height:7px;background:#202a35;border-radius:8px;margin-top:12px;overflow:hidden}.progress i{display:block;width:0;height:100%;background:#f43c4f;transition:width .4s}
 </style>
 </head>
 <body><main>
 <header><div class="logo">U</div><div class="brand">ULTRON<small>NEO VIDEO RELAY · LOKAL AUF DIESEM PC</small></div></header>
 <div class="grid">
 <section class="card"><h2>HANDY KOPPELN</h2><div class="muted">URL am PC eintragen, QR-Code in der ULTRON-App scannen und koppeln. Der sechsstellige Code ist fünf Minuten gültig.</div>
-<div class="pair-tools"><label for="serveUrl">PC-Adresse im WLAN oder Tailscale-URL</label><input id="serveUrl" type="url" placeholder="http://192.168.1.23:8787" autocomplete="url"><button id="updateQr">QR-Code erzeugen</button><div id="pairQr" aria-label="ULTRON-Kopplungs-QR-Code"></div><div id="qrMessage" class="muted">PC und Handy müssen im selben WLAN sein. Tailscale-HTTPS funktioniert ebenfalls.</div></div>
+<div class="pair-tools"><label for="serveUrl">PC-Adresse im WLAN oder Tailscale-URL</label><input id="serveUrl" type="url" list="lanUrls" placeholder="http://192.168.1.23:8787" autocomplete="url"><datalist id="lanUrls"></datalist><button id="updateQr">QR-Code erzeugen</button><div id="pairQr" aria-label="ULTRON-Kopplungs-QR-Code"></div><div id="qrMessage" class="muted">PC und Handy müssen im selben WLAN sein. Wenn mehrere PC-Adressen angezeigt werden, probiere bei Verbindungsproblemen die andere.</div></div>
 <div class="muted">Falls Scannen nicht klappt, Code manuell eingeben:</div><div id="pin" class="pin">······</div><div class="state"><span id="pairedDot" class="dot"></span><span id="pairedText">Noch kein Handy verbunden</span></div><button id="rotate">Neuen Code anzeigen</button>
 <div class="instructions"><b>Ohne Adminrechte:</b> Verbinde PC und Handy mit demselben privaten WLAN oder Handy-Hotspot. Die PC-Adresse wird automatisch vorgeschlagen. Scanne den QR-Code in der ULTRON-App. Nutze kein öffentliches WLAN. Für Zugriff von unterwegs bleibt Tailscale eine optionale Alternative.</div>
 </section>
 <section class="card"><h2>DJI FLY LIVEBILD</h2><img id="frame" class="frame" alt="Livebild der DJI Fly App"><div id="placeholder" class="frame" style="display:grid;place-items:center;color:#718091">Warte auf den ersten Videoframe …</div><div id="notice">Die App überträgt den Bildschirm erst nach deiner Android-Freigabe.</div><button id="micListen">PC-Mikrofon hören</button><div id="micStatus" class="muted">Handy-Mikrofon wird erst nach deiner Freigabe übertragen.</div></section>
 </div>
-<section class="card reconstruct"><h2>LOKALE 3D-REKONSTRUKTION</h2><p class="muted">Wähle hier eine Datei oder sende sie aus der gekoppelten Android-App. ULTRON extrahiert lokal überlappende Frames und COLMAP erstellt daraus ein Mesh. Die Datei bleibt auf diesem PC.</p><input id="videoFile" type="file" accept="video/mp4,video/quicktime,.mp4,.mov"><button id="make3d">Video hochladen und 3D-Modell erstellen</button><div class="progress"><i id="progressBar"></i></div><div id="modelStatus" class="muted" style="margin-top:10px">Benötigt FFmpeg und COLMAP auf dem PC.</div><div id="modelViewer"><div class="viewer-tools"><button id="spinToggle">Drehung starten</button><button id="viewReset">Ansicht zurücksetzen</button></div><div class="viewer-hint">Ziehen: drehen · Mausrad: zoomen · Touch: bewegen/zoomen</div></div><p><a id="modelLink" class="model-link">3D-Mesh (PLY) herunterladen</a></p><div class="instructions"><b>Für ein gutes Modell:</b> ruhig und langsam fliegen, das Motiv aus mehreren Seiten mit viel Überlappung filmen, ausreichend Licht und sichtbare Oberflächentextur. Gleichförmige Flächen, schnelle Schwenks und bewegte Motive verschlechtern die Rekonstruktion. Die 3D-Verarbeitung startet nach dem Flug aus der Originaldatei, nicht aus dem komprimierten Livebild.</div></section></main>
+<section class="card reconstruct"><h2>VIDEO ZU 3D</h2><p class="muted">Große Originalvideos am besten direkt hier am PC auswählen oder ablegen. Sie werden lokal auf die PC-Festplatte übertragen und nicht über das Handy oder WLAN geschickt. ULTRON erstellt ein drehbares 3D-Mesh oder, falls Dense-Meshing auf diesem PC nicht verfügbar ist, eine 3D-Punktwolke.</p><label id="dropZone" class="drop-zone" for="videoFile">MP4 oder MOV hier ablegen oder anklicken<input id="videoFile" type="file" accept="video/mp4,video/quicktime,.mp4,.mov"></label><div id="selectedVideo" class="muted">Noch kein Video ausgewählt · große Originaldateien werden direkt am PC verarbeitet.</div><button id="make3d">Video hochladen und 3D-Modell erstellen</button><div class="progress"><i id="progressBar"></i></div><div id="modelStatus" class="muted" style="margin-top:10px">Benötigt FFmpeg und COLMAP auf dem PC.</div><div id="modelViewer"><div class="viewer-tools"><button id="spinToggle">Drehung starten</button><button id="viewReset">Ansicht zurücksetzen</button></div><div class="viewer-hint">Ziehen: drehen · Mausrad: zoomen · Touch: bewegen/zoomen</div></div><p><a id="modelLink" class="model-link">3D-Mesh (PLY) herunterladen</a></p><div class="instructions"><b>Für ein gutes Modell:</b> ruhig und langsam fliegen, das Motiv aus mehreren Seiten mit viel Überlappung filmen, ausreichend Licht und sichtbare Oberflächentextur. Gleichförmige Flächen, schnelle Schwenks und bewegte Motive verschlechtern die Rekonstruktion. Die 3D-Verarbeitung startet nach dem Flug aus der Originaldatei, nicht aus dem komprimierten Livebild.</div></section></main>
 <script src="/vendor/qrcode.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
@@ -72,8 +72,12 @@ async function drawPairQr(){
 }
 async function refresh(){
   try{
-    const [pair,status]=await Promise.all([fetch('/api/pairing',{cache:'no-store'}).then(r=>r.json()),fetch('/api/status',{cache:'no-store'}).then(r=>r.json())]);
+    const [pairResponse,statusResponse]=await Promise.all([fetch('/api/pairing',{cache:'no-store'}),fetch('/api/status',{cache:'no-store'})]);
+    if(!pairResponse.ok||!statusResponse.ok)throw new Error('Bitte die PC-Seite direkt am PC unter http://127.0.0.1:8787 öffnen.');
+    const [pair,status]=await Promise.all([pairResponse.json(),statusResponse.json()]);
     $('pin').textContent=pair.pin||'······';
+    const addressList=$('lanUrls');
+    addressList.replaceChildren(...(pair.lanUrls||[]).map(value=>{const option=document.createElement('option');option.value=value;return option}));
     if(!$('serveUrl').value.trim()&&pair.lanUrls?.length)$('serveUrl').value=pair.lanUrls[0];
     if($('serveUrl').value.trim())drawPairQr();
     $('pairedDot').classList.toggle('on',status.paired);
@@ -88,19 +92,27 @@ async function refresh(){
         $('notice').textContent='Videobild empfangen · Frame '+status.frameNumber;
       }
     }
-  }catch(_){$('pairedText').textContent='Relay-Server nicht erreichbar';}
+  }catch(error){$('pairedText').textContent=error.message||'Relay-Server nicht erreichbar';}
 }
 $('rotate').onclick=async()=>{await fetch('/api/rotate-code',{method:'POST'});refresh()};
 $('updateQr').onclick=()=>drawPairQr();
 let activeJob=null;
+function readableSize(bytes){const units=['B','KB','MB','GB','TB'];let size=bytes,index=0;while(size>=1024&&index<units.length-1){size/=1024;index++}return size.toFixed(index?1:0)+' '+units[index]}
+function setSelectedVideo(file){$('selectedVideo').textContent=file?file.name+' · '+readableSize(file.size):'Noch kein Video ausgewählt · große Originaldateien werden direkt am PC verarbeitet.'}
+$('videoFile').addEventListener('change',()=>setSelectedVideo($('videoFile').files[0]));
+$('dropZone').addEventListener('dragover',event=>{event.preventDefault();$('dropZone').classList.add('dragging')});
+$('dropZone').addEventListener('dragleave',()=> $('dropZone').classList.remove('dragging'));
+$('dropZone').addEventListener('drop',event=>{event.preventDefault();$('dropZone').classList.remove('dragging');const file=event.dataTransfer.files[0];if(!file)return;if(!/\.(mp4|mov)$/i.test(file.name)){ $('modelStatus').textContent='Bitte eine MP4- oder MOV-Datei auswählen.';return }const transfer=new DataTransfer();transfer.items.add(file);$('videoFile').files=transfer.files;setSelectedVideo(file)});
+function uploadVideoToPc(file){return new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open('POST','/api/video');xhr.timeout=0;const contentType=/^video\/(mp4|quicktime)$/i.test(file.type)?file.type:(/\.mov$/i.test(file.name)?'video/quicktime':'video/mp4');xhr.setRequestHeader('Content-Type',contentType);xhr.upload.onprogress=event=>{if(event.lengthComputable){const percent=Math.floor(event.loaded/event.total*100);$('progressBar').style.width=Math.max(2,Math.round(percent*.34))+'%';$('modelStatus').textContent='Video wird lokal übertragen: '+percent+'% ('+readableSize(event.loaded)+' von '+readableSize(event.total)+')'}};xhr.onload=()=>{let data={};try{data=JSON.parse(xhr.responseText)}catch{}if(xhr.status>=200&&xhr.status<300)resolve(data);else reject(new Error(data.error||'Upload fehlgeschlagen (HTTP '+xhr.status+').'))};xhr.onerror=()=>reject(new Error('Upload unterbrochen. Prüfe freien Speicherplatz und starte den PC-Relay erneut.'));xhr.onabort=()=>reject(new Error('Upload wurde abgebrochen.'));xhr.send(file)})}
+function showModel(job){$('modelLink').href='/api/model/'+job.id;$('modelLink').textContent=job.modelType==='pointcloud'?'3D-Punktwolke (PLY) herunterladen':'3D-Mesh (PLY) herunterladen';$('modelLink').style.display='inline';window.loadUltronModel?.(job.id,job.modelType)}
 $('make3d').onclick=async()=>{
   const file=$('videoFile').files[0];
   if(!file){$('modelStatus').textContent='Bitte zuerst ein MP4- oder MOV-Video auswählen.';return}
-  $('make3d').disabled=true;$('modelLink').style.display='none';$('progressBar').style.width='5%';$('modelStatus').textContent='Video wird lokal übertragen …';
+  if(!/\.(mp4|mov)$/i.test(file.name)&&!/^video\/(mp4|quicktime)$/i.test(file.type)){ $('modelStatus').textContent='Bitte eine MP4- oder MOV-Datei auswählen.';return }
+  $('make3d').disabled=true;$('modelLink').style.display='none';$('progressBar').style.width='2%';$('modelStatus').textContent='Video wird lokal übertragen …';
   try{
-    const uploaded=await fetch('/api/video',{method:'POST',headers:{'Content-Type':file.type||'video/mp4'},body:file});
-    const video=await uploaded.json();if(!uploaded.ok)throw new Error(video.error||'Upload fehlgeschlagen');
-    activeJob=video.id;
+    const video=await uploadVideoToPc(file);if(!video.id)throw new Error(video.error||'Der PC hat keinen Upload-Auftrag zurückgegeben.');
+    activeJob=video.id;$('progressBar').style.width='35%';$('modelStatus').textContent='Video ist am PC. COLMAP startet die 3D-Erstellung …';
     const started=await fetch('/api/reconstruct',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:activeJob})});
     const begin=await started.json();if(!started.ok)throw new Error(begin.error||'Start fehlgeschlagen');
     pollReconstruction();
@@ -112,7 +124,7 @@ async function pollReconstruction(){
     const response=await fetch('/api/reconstruct/'+activeJob,{cache:'no-store'}),job=await response.json();
     $('modelStatus').textContent=job.message||job.state;
     $('progressBar').style.width=job.state==='done'?'100%':job.state==='reconstructing'?'65%':job.state==='frames'?'30%':'15%';
-    if(job.state==='done'){$('modelLink').href='/api/model/'+activeJob;$('modelLink').style.display='inline';$('make3d').disabled=false;window.loadUltronModel?.(activeJob);return}
+    if(job.state==='done'){showModel(job);$('make3d').disabled=false;return}
     if(job.state==='error'){$('make3d').disabled=false;return}
     setTimeout(pollReconstruction,2500);
   }catch(error){$('modelStatus').textContent='Statusabfrage fehlgeschlagen: '+error.message;$('make3d').disabled=false}
@@ -121,12 +133,12 @@ async function refreshLatest(){
   try{
     const response=await fetch('/api/3d/latest',{cache:'no-store'}),job=await response.json();
     if(job.id){activeJob=job.id;$('modelStatus').textContent=job.message||job.state;$('progressBar').style.width=job.state==='done'?'100%':job.state==='reconstructing'?'65%':job.state==='frames'?'30%':job.state==='error'?'0%':'15%';
-      if(job.state==='done'){$('modelLink').href='/api/model/'+job.id;$('modelLink').style.display='inline';window.loadUltronModel?.(job.id)}
+      if(job.state==='done')showModel(job)
       else $('modelLink').style.display='none';
     }else if($('modelStatus').textContent==='Benötigt FFmpeg und COLMAP auf dem PC.'){$('modelStatus').textContent=job.message}
   }catch(_){}
 }
-refresh();setInterval(refresh,200);refreshLatest();setInterval(refreshLatest,2500);
+refresh();setInterval(refresh,750);refreshLatest();setInterval(refreshLatest,2500);
 let micListening=false,micSequence=0,micContext=null,micNextStart=0,micStartedAt=0,micLastPacketAt=0;
 async function pollMic(){
   if(!micListening)return;
@@ -140,7 +152,7 @@ async function pollMic(){
       if(micNextStart<now-0.2||micNextStart>now+1.5)micNextStart=now+0.05;
       const startAt=Math.max(now+0.02,micNextStart);source.start(startAt);micNextStart=startAt+audio.duration;
       micLastPacketAt=Date.now();$('micStatus').textContent='Handy-Mikrofon wird am PC wiedergegeben.';
-    }else if(response.status===204){const now=Date.now();if(!micLastPacketAt&&now-micStartedAt>3500)$('micStatus').textContent='Noch kein Tonpaket vom Handy. In der App Mikrofon freigeben und den Stream starten.';else if(micLastPacketAt&&now-micLastPacketAt>5000)$('micStatus').textContent='Seit 5 Sekunden kein Ton. App, WLAN und Mikrofonfreigabe prüfen.';}else throw new Error('PC kann den Mikrofonton nicht abrufen.');
+    }else if(response.status===204){const now=Date.now();if(!micLastPacketAt&&now-micStartedAt>3500)$('micStatus').textContent='Noch kein Tonpaket vom Handy. In der App Mikrofon freigeben und den Stream starten.';else if(micLastPacketAt&&now-micLastPacketAt>5000)$('micStatus').textContent='Seit 5 Sekunden kein Ton. App, WLAN und Mikrofonfreigabe prüfen.';}else if(response.status===403)throw new Error('Öffne die PC-Seite unter http://127.0.0.1:8787.');else throw new Error('PC kann den Mikrofonton nicht abrufen.');
   }catch(error){$('micStatus').textContent='Mikrofonfehler: '+(error.message||'Verbindung prüfen');}
   if(micListening)setTimeout(pollMic,120);
 }
@@ -148,7 +160,7 @@ $('micListen').onclick=async()=>{
   if(micListening){micListening=false;micStartedAt=0;micLastPacketAt=0;$('micListen').textContent='PC-Mikrofon hören';$('micStatus').textContent='Wiedergabe gestoppt.';await micContext?.close();micContext=null;return}
   try{
     micContext=new (window.AudioContext||window.webkitAudioContext)();await micContext.resume();
-    const status=await fetch('/api/status',{cache:'no-store'}).then(r=>r.json());micSequence=status.micSequence||0;
+    const statusResponse=await fetch('/api/status',{cache:'no-store'});if(!statusResponse.ok)throw new Error('Öffne die PC-Seite unter http://127.0.0.1:8787, damit ULTRON das Mikrofon abspielen kann.');const status=await statusResponse.json();micSequence=status.micSequence||0;
     micNextStart=0;micLastPacketAt=0;micStartedAt=Date.now();micListening=true;$('micListen').textContent='Mikrofonwiedergabe stoppen';$('micStatus').textContent='Warte auf Handy-Mikrofon …';pollMic();
   }catch(error){$('micStatus').textContent='Audio konnte nicht gestartet werden: '+(error.message||'Browser prüfen');micListening=false;}
 };
@@ -171,20 +183,23 @@ let mesh=null,activeModel='';
 function resize(){const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
 new ResizeObserver(resize).observe(host);resize();
 function reset(){if(!mesh)return;camera.position.set(2.4,1.7,2.4);controls.target.set(0,0,0);controls.update()}
-window.loadUltronModel=(id)=>{
+window.loadUltronModel=(id,modelType='mesh')=>{
   if(!id||id===activeModel)return;activeModel=id;host.style.display='block';resize();
-  document.getElementById('modelStatus').textContent='3D-Mesh wird in der ULTRON-Ansicht geladen …';
+  document.getElementById('modelStatus').textContent=(modelType==='pointcloud'?'3D-Punktwolke':'3D-Mesh')+' wird in der ULTRON-Ansicht geladen …';
   new PLYLoader().load('/api/model/'+encodeURIComponent(id),geometry=>{
     if(mesh){scene.remove(mesh);mesh.geometry.dispose();mesh.material.dispose()}
-    if(!geometry.getAttribute('normal'))geometry.computeVertexNormals();
     const hasColors=!!geometry.getAttribute('color');
-    const material=new THREE.MeshStandardMaterial({color:hasColors?0xffffff:0x9fb4c8,vertexColors:hasColors,roughness:.82,metalness:.02,side:THREE.DoubleSide});
-    mesh=new THREE.Mesh(geometry,material);
+    const hasFaces=!!geometry.index&&geometry.index.count>=3;
+    if(hasFaces&&!geometry.getAttribute('normal'))geometry.computeVertexNormals();
+    const material=hasFaces
+      ?new THREE.MeshStandardMaterial({color:hasColors?0xffffff:0x9fb4c8,vertexColors:hasColors,roughness:.82,metalness:.02,side:THREE.DoubleSide})
+      :new THREE.PointsMaterial({color:hasColors?0xffffff:0xff7480,vertexColors:hasColors,size:.014,sizeAttenuation:true});
+    mesh=hasFaces?new THREE.Mesh(geometry,material):new THREE.Points(geometry,material);
     geometry.computeBoundingBox();
     const center=geometry.boundingBox.getCenter(new THREE.Vector3());geometry.translate(-center.x,-center.y,-center.z);
     const size=geometry.boundingBox.getSize(new THREE.Vector3());const span=Math.max(size.x,size.y,size.z)||1;mesh.scale.setScalar(2/span);
     scene.add(mesh);reset();
-    document.getElementById('modelStatus').textContent='3D-Modell geladen · mit Maus oder Touch drehen und zoomen.';
+    document.getElementById('modelStatus').textContent=(hasFaces?'3D-Mesh':'3D-Punktwolke')+' geladen · mit Maus oder Touch drehen und zoomen.';
   },undefined,error=>{document.getElementById('modelStatus').textContent='3D-Vorschau konnte nicht geladen werden: '+(error?.message||'Datei prüfen')});
 };
 document.getElementById('spinToggle').onclick=()=>{controls.autoRotate=!controls.autoRotate;document.getElementById('spinToggle').textContent=controls.autoRotate?'Drehung stoppen':'Drehung starten'};
