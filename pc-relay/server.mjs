@@ -4,13 +4,14 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.ULTRON_PORT || 8787);
-const HOST = '127.0.0.1';
+const HOST = process.env.ULTRON_HOST || '0.0.0.0';
 const MAX_FRAME_BYTES = 900_000;
 const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
 const FRAME_INTERVAL_MS = 160;
@@ -51,10 +52,39 @@ function readBody(req, limit = 16_384) {
 function isTailscaleRequest(req) {
   return typeof req.headers['tailscale-user-login'] === 'string';
 }
+function isLoopbackRequest(req) {
+  const ip = (req.socket.remoteAddress || '').toLowerCase();
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+function isPrivateIPv4(ip) {
+  const octets = ip.split('.').map(Number);
+  if (octets.length !== 4 || octets.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return false;
+  return octets[0] === 10 ||
+    (octets[0] === 192 && octets[1] === 168) ||
+    (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31);
+}
+function isLanRequest(req) {
+  let ip = (req.socket.remoteAddress || '').toLowerCase();
+  if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+  if (isPrivateIPv4(ip)) return true;
+  return ip.startsWith('fc') || ip.startsWith('fd');
+}
+function isTrustedRelay(req) {
+  return isTailscaleRequest(req) || isLanRequest(req);
+}
 function isLocal(req) {
-  const ip = req.socket.remoteAddress || '';
-  const loopback = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
-  return loopback && !isTailscaleRequest(req);
+  return isLoopbackRequest(req) && !isTailscaleRequest(req);
+}
+function getLanUrls() {
+  const addresses = [];
+  for (const records of Object.values(os.networkInterfaces())) {
+    for (const record of records || []) {
+      if (record.internal || (record.family !== 'IPv4' && record.family !== 4) || !isPrivateIPv4(record.address)) continue;
+      const url = `http://${record.address}:${PORT}`;
+      if (!addresses.includes(url)) addresses.push(url);
+    }
+  }
+  return addresses;
 }
 function authorized(req) {
   const supplied = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -107,10 +137,10 @@ const server = http.createServer(async (req, res) => {
       if (!isLocal(req)) return json(res, 403, { error: 'Pair code is shown only on the PC.' });
       if (pinLockedUntil && Date.now() >= pinLockedUntil) { pinLockedUntil = 0; pairing = newPairing(); }
       if (!pairedToken && !pinLockedUntil && Date.now() >= pairing.expiresAt) pairing = newPairing();
-      return json(res, 200, { pin: pairedToken || pinLockedUntil ? '' : pairing.pin, expiresAt: pairing.expiresAt, locked: !!pinLockedUntil, paired: !!pairedToken, frameNumber });
+      return json(res, 200, { pin: pairedToken || pinLockedUntil ? '' : pairing.pin, expiresAt: pairing.expiresAt, locked: !!pinLockedUntil, paired: !!pairedToken, frameNumber, lanUrls: getLanUrls() });
     }
     if (req.method === 'POST' && url.pathname === '/api/pair') {
-      if (!isTailscaleRequest(req)) return json(res, 403, { error: 'Use the private Tailscale Serve URL to pair.' });
+      if (!isTrustedRelay(req)) return json(res, 403, { error: 'Zum Koppeln bitte dasselbe private WLAN oder Tailscale verwenden.' });
       if (pairedToken) return json(res, 409, { error: 'Ein Handy ist bereits gekoppelt. Trenne es zuerst am PC.' });
       if (pinAttempts >= 8) return json(res, 429, { error: 'Zu viele Versuche. Bitte am PC einen neuen Code erzeugen.' });
       const body = JSON.parse((await readBody(req)).toString('utf8') || '{}');
@@ -129,7 +159,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
     if (req.method === 'POST' && url.pathname === '/api/frame') {
-      if (!isTailscaleRequest(req)) return json(res, 403, { error: 'Use the private Tailscale Serve URL to stream.' });
+      if (!isTrustedRelay(req)) return json(res, 403, { error: 'Nur Verbindungen aus dem privaten WLAN oder Tailscale sind erlaubt.' });
       if (!authorized(req)) return json(res, 401, { error: 'Not paired.' });
       if (!req.headers['content-type']?.startsWith('image/jpeg')) return json(res, 415, { error: 'Send a JPEG frame.' });
       if (Date.now() - lastFrameAt < FRAME_INTERVAL_MS) { req.resume(); return json(res, 429, { error: 'Frame rate limited.' }); }
@@ -164,7 +194,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 201, { id, state: 'uploaded' });
     }
     if (req.method === 'POST' && url.pathname === '/api/video-phone') {
-      if (!isTailscaleRequest(req) || !authorized(req)) return json(res, 401, { error: 'Handy ist nicht gekoppelt oder Tailscale Serve fehlt.' });
+      if (!isTrustedRelay(req) || !authorized(req)) return json(res, 401, { error: 'Handy ist nicht gekoppelt oder nicht im privaten WLAN/Tailscale.' });
       if (!req.headers['content-type']?.startsWith('video/')) return json(res, 415, { error: 'Bitte eine MP4- oder MOV-Videodatei senden.' });
       await fsp.mkdir(MEDIA_DIR, { recursive: true });
       const id = crypto.randomUUID();
@@ -224,7 +254,10 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`ULTRON PC Relay läuft lokal auf http://${HOST}:${PORT}`);
-  console.log('Zum sicheren Fernzugriff Tailscale Serve im privaten Tailnet verwenden.');
+  console.log(`ULTRON PC Relay läuft auf Port ${PORT}.`);
+  console.log('Lokales Dashboard: http://127.0.0.1:' + PORT);
+  const lanUrls = getLanUrls();
+  if (lanUrls.length) console.log('Handy im selben WLAN: ' + lanUrls.join(' · '));
+  console.log('Für Verbindungen außerhalb des WLANs Tailscale Serve verwenden.');
   console.log(`Pairing-Code: ${pairing.pin} (5 Minuten gültig)`);
 });
