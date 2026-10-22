@@ -1,0 +1,9 @@
+{
+  "name": "ultron-neo-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local ULTRON PC relay for DJI Fly screen capture from Android.",
+  "type": "module",
+  "scripts": { "start": "node server.mjs" },
+  "engines": { "node": ">=20" }
+}
