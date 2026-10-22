@@ -15,7 +15,8 @@ const MAX_FRAME_BYTES = 900_000;
 const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
 const FRAME_INTERVAL_MS = 160;
 const MEDIA_DIR = path.join(ROOT, 'media');
-const jobs = new Map();\nlet latestJobId = null;
+const jobs = new Map();
+let latestJobId = null;
 let pinAttempts = 0;
 let pinLockedUntil = 0;
 let pairing = newPairing();
@@ -56,7 +57,7 @@ function isLocal(req) {
   return loopback && !isTailscaleRequest(req);
 }
 function authorized(req) {
-  const supplied = (req.headers.authorization || '').replace(/^Bearer\\s+/i, '');
+  const supplied = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   return !!pairedToken && supplied.length === pairedToken.length && crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(pairedToken));
 }
 function run(command, args, onProgress) {
@@ -65,7 +66,7 @@ function run(command, args, onProgress) {
     let tail = '';
     child.stderr.on('data', chunk => {
       tail = (tail + chunk.toString('utf8')).slice(-6000);
-      onProgress?.(tail.trim().split('\\n').slice(-1)[0] || '');
+      onProgress?.(tail.trim().split('\n').slice(-1)[0] || '');
     });
     child.on('error', error => reject(new Error(`Programm ${command} nicht gefunden oder nicht startbar: ${error.message}`)));
     child.on('close', code => code === 0 ? resolve() : reject(new Error(`${command} wurde mit Exit-Code ${code} beendet. ${tail.slice(-1200)}`)));
