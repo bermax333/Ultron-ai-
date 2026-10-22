@@ -1,6 +1,12 @@
 name: Build Android relay APK
 
 on:
+  push:
+    branches:
+      - feat/ultron-neo-relay
+    paths:
+      - "android-relay/**"
+      - ".github/workflows/build-relay-apk.yml"
   pull_request:
     paths:
       - "android-relay/**"
