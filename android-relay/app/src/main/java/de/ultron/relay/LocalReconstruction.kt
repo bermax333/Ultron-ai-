@@ -130,7 +130,7 @@ object LocalReconstruction {
                 val firstPoints = MatOfPoint2f(*matches.map { first.points[it.queryIdx].pt }.toTypedArray())
                 val secondPoints = MatOfPoint2f(*matches.map { second.points[it.trainIdx].pt }.toTypedArray())
                 val inlierMask = Mat()
-                val essential = Calib3d.findEssentialMat(firstPoints, secondPoints, camera, Calib3d.RANSAC, 0.999, 1.5, inlierMask)
+                val essential = Calib3d.findEssentialMat(firstPoints, secondPoints, camera, Calib3d.RANSAC, 0.999, 1.5, 2_000, inlierMask)
                 if (essential.empty()) {
                     firstPoints.release(); secondPoints.release(); inlierMask.release(); essential.release()
                     continue
