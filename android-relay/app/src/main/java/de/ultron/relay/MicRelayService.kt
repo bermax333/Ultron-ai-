@@ -21,6 +21,8 @@ class MicRelayService : Service() {
     companion object {
         const val EXTRA_URL = "mic_relay_url"
         const val EXTRA_TOKEN = "mic_relay_token"
+        const val ACTION_STATUS = "de.ultron.relay.MIC_STATUS"
+        const val EXTRA_STATUS = "status_message"
         private const val CHANNEL_ID = "ultron_mic_relay"
         private const val NOTIFICATION_ID = 4702
         private const val SAMPLE_RATE = 16_000
@@ -32,6 +34,8 @@ class MicRelayService : Service() {
     private var recorder: AudioRecord? = null
     private var baseUrl = ""
     private var authToken = ""
+    private var networkFailureReported = false
+    private var lastNetworkReportAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -41,14 +45,14 @@ class MicRelayService : Service() {
         if (baseUrl.isBlank() || authToken.isBlank() ||
             checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED
         ) {
+            reportStatus("Mikrofonstart abgebrochen: ULTRON-Verbindung, Code oder Mikrofonfreigabe prüfen.")
             stopSelf()
             return START_NOT_STICKY
         }
 
-        startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
-        if (!running.compareAndSet(false, true)) return START_NOT_STICKY
-
         try {
+            startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            if (!running.compareAndSet(false, true)) return START_NOT_STICKY
             val minimum = AudioRecord.getMinBufferSize(
                 SAMPLE_RATE,
                 AudioFormat.CHANNEL_IN_MONO,
@@ -66,9 +70,11 @@ class MicRelayService : Service() {
                 throw IllegalStateException("Android konnte das Mikrofon nicht öffnen.")
             }
             recorder?.startRecording()
+            reportStatus("Handy-Mikrofon aktiv. ULTRON-PC-Seite öffnen und „PC-Mikrofon hören“ starten.")
             sender.execute { captureAndSend() }
         } catch (error: Exception) {
             running.set(false)
+            reportStatus("Mikrofon konnte nicht gestartet werden: ${error.message ?: "Android-Berechtigung oder Gerät prüfen"}")
             stopSelf()
         }
         return START_NOT_STICKY
@@ -91,25 +97,39 @@ class MicRelayService : Service() {
 
     private fun captureAndSend() {
         val pcm = ShortArray(CHUNK_SAMPLES)
-        while (running.get()) {
-            var collected = 0
-            while (collected < pcm.size && running.get()) {
-                val count = recorder?.read(pcm, collected, pcm.size - collected, AudioRecord.READ_BLOCKING) ?: -1
-                if (count > 0) collected += count
-                else if (count < 0) {
-                    running.set(false)
-                    break
+        try {
+            while (running.get()) {
+                var collected = 0
+                while (collected < pcm.size && running.get()) {
+                    val count = recorder?.read(pcm, collected, pcm.size - collected, AudioRecord.READ_BLOCKING) ?: -1
+                    if (count > 0) collected += count
+                    else if (count < 0) {
+                        reportStatus("Android hat die Mikrofonaufnahme beendet (AudioRecord $count).")
+                        running.set(false)
+                        break
+                    }
+                }
+                if (collected == pcm.size && running.get()) {
+                    try {
+                        sendChunk(toWav(pcm))
+                        if (networkFailureReported) reportStatus("Mikrofonverbindung wiederhergestellt.")
+                        networkFailureReported = false
+                    } catch (error: Exception) {
+                        val now = System.currentTimeMillis()
+                        if (!networkFailureReported || now - lastNetworkReportAt >= 3000) {
+                            reportStatus("Mikrofon erreicht den PC nicht: ${error.message ?: "WLAN/Pairing prüfen"}")
+                            lastNetworkReportAt = now
+                        }
+                        networkFailureReported = true
+                    }
                 }
             }
-            if (collected == pcm.size && running.get()) {
-                try {
-                    sendChunk(toWav(pcm))
-                } catch (_: Exception) {
-                    // Keep capturing; a temporary Wi-Fi drop only loses this audio chunk.
-                }
-            }
+        } catch (error: Exception) {
+            reportStatus("Mikrofonaufnahme fehlgeschlagen: ${error.message ?: "Android-Audio prüfen"}")
+        } finally {
+            running.set(false)
+            stopSelf()
         }
-        stopSelf()
     }
 
     private fun sendChunk(wav: ByteArray) {
@@ -124,10 +144,18 @@ class MicRelayService : Service() {
         }
         try {
             connection.outputStream.use { it.write(wav) }
-            connection.responseCode
+            val code = connection.responseCode
+            if (code !in 200..299) {
+                val detail = runCatching { connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty() }.getOrDefault("")
+                throw IllegalStateException("PC antwortet mit HTTP $code${if (detail.isBlank()) "" else ": $detail"}")
+            }
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun reportStatus(message: String) {
+        sendBroadcast(Intent(ACTION_STATUS).setPackage(packageName).putExtra(EXTRA_STATUS, message))
     }
 
     private fun toWav(samples: ShortArray): ByteArray {

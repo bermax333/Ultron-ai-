@@ -132,6 +132,11 @@ async function reconstruct(job) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
+    if (req.method === 'GET' && url.pathname === '/vendor/qrcode.min.js') {
+      const script = await fsp.readFile(path.join(ROOT, 'vendor', 'qrcode.min.js'));
+      res.writeHead(200, { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'public, max-age=86400', 'content-length': script.length });
+      res.end(script); return;
+    }
     if (req.method === 'GET' && url.pathname === '/') {
       const html = fs.readFileSync(path.join(ROOT, 'index.html'));
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-length': html.length });

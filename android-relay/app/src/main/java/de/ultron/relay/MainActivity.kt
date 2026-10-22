@@ -1,8 +1,10 @@
 package de.ultron.relay
 
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
@@ -40,6 +42,13 @@ class MainActivity : ComponentActivity() {
     private var microphoneRunning = false
     private var token: String? = null
     private var baseUrl: String = ""
+    private var micReceiverRegistered = false
+    private val micStatusReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val message = intent?.getStringExtra(MicRelayService.EXTRA_STATUS).orEmpty()
+            if (message.isNotBlank()) status.text = message
+        }
+    }
 
     private val qrScanner = registerForActivityResult(ScanContract()) { result ->
         val contents = result.contents
@@ -93,6 +102,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         buildUi()
+        val filter = IntentFilter(MicRelayService.ACTION_STATUS)
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(micStatusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        else registerReceiver(micStatusReceiver, filter)
+        micReceiverRegistered = true
     }
 
     private fun buildUi() {
@@ -180,7 +193,7 @@ class MainActivity : ComponentActivity() {
     private fun isAllowedServerUrl(rawUrl: String): Boolean {
         val uri = try { URI(rawUrl) } catch (_: Exception) { return false }
         val host = uri.host ?: return false
-        if (uri.scheme.equals("https", ignoreCase = true)) return true
+        if (uri.scheme.equals("https", ignoreCase = true)) return host.lowercase().endsWith(".ts.net")
         if (!uri.scheme.equals("http", ignoreCase = true)) return false
         val octets = host.split(".").map { it.toIntOrNull() ?: return false }
         if (octets.size != 4 || octets.any { it !in 0..255 }) return false
@@ -193,7 +206,7 @@ class MainActivity : ComponentActivity() {
         val url = serverField.text.toString().trim().trimEnd('/')
         val pin = pinField.text.toString().trim()
         if (!isAllowedServerUrl(url) || pin.length != 6) {
-            status.text = "Bitte den QR-Code scannen oder eine private WLAN-/HTTPS-Adresse und den sechsstelligen Code eingeben."
+            status.text = "Bitte den QR-Code scannen oder eine private WLAN-Adresse bzw. Tailscale-HTTPS-Adresse (*.ts.net) und den sechsstelligen Code eingeben."
             return
         }
         pairButton.isEnabled = false
@@ -332,6 +345,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (micReceiverRegistered) unregisterReceiver(micStatusReceiver)
         io.shutdownNow()
         jobMonitor.shutdownNow()
         super.onDestroy()
