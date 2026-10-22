@@ -92,7 +92,7 @@ async function reconstruct(job) {
   }
   if (!modelPath) throw new Error('COLMAP hat keine exportierbare Mesh-Datei erzeugt. Prüfe die Aufnahme und COLMAP-Ausgabe.');
   const modelName = path.basename(modelPath);
-  job.state = 'done'; job.message = '3D-Rekonstruktion fertig.'; job.modelName = modelName;
+  job.state = 'done'; job.message = '3D-Rekonstruktion fertig.'; job.modelName = modelName; job.modelPath = modelPath;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -185,9 +185,7 @@ const server = http.createServer(async (req, res) => {
       const id = url.pathname.split('/').pop();
       const job = jobs.get(id);
       if (!job || job.state !== 'done') return json(res, 404, { error: 'Modell noch nicht verfügbar.' });
-      const modelPath = path.join(MEDIA_DIR, id, 'dense', '0', 'meshed-poisson.ply');
-      let actualPath = modelPath;
-      try { await fsp.access(actualPath); } catch { actualPath = path.join(MEDIA_DIR, id, 'dense', 'meshed-poisson.ply'); }
+      const actualPath = job.modelPath;
       const stat = await fsp.stat(actualPath);
       res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': stat.size, 'content-disposition': `attachment; filename="${job.modelName || 'ultron-model.ply'}"`, 'cache-control': 'no-store' });
       fs.createReadStream(actualPath).pipe(res); return;
