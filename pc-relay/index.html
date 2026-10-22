@@ -17,9 +17,9 @@ button:disabled{opacity:.55;cursor:wait}#modelViewer{display:none;height:430px;b
 <header><div class="logo">U</div><div class="brand">ULTRON<small>NEO VIDEO RELAY · LOKAL AUF DIESEM PC</small></div></header>
 <div class="grid">
 <section class="card"><h2>HANDY KOPPELN</h2><div class="muted">URL am PC eintragen, QR-Code in der ULTRON-App scannen und koppeln. Der sechsstellige Code ist fünf Minuten gültig.</div>
-<div class="pair-tools"><label for="serveUrl">Tailscale-Serve-URL</label><input id="serveUrl" type="url" placeholder="https://ultron-pc.dein-tailnet.ts.net" autocomplete="url"><button id="updateQr">QR-Code erzeugen</button><canvas id="pairQr" width="220" height="220" aria-label="ULTRON-Kopplungs-QR-Code"></canvas><div id="qrMessage" class="muted">Trage zuerst die HTTPS-Adresse von Tailscale Serve ein.</div></div>
+<div class="pair-tools"><label for="serveUrl">PC-Adresse im WLAN oder Tailscale-URL</label><input id="serveUrl" type="url" placeholder="http://192.168.1.23:8787" autocomplete="url"><button id="updateQr">QR-Code erzeugen</button><canvas id="pairQr" width="220" height="220" aria-label="ULTRON-Kopplungs-QR-Code"></canvas><div id="qrMessage" class="muted">PC und Handy müssen im selben WLAN sein. Tailscale-HTTPS funktioniert ebenfalls.</div></div>
 <div class="muted">Falls Scannen nicht klappt, Code manuell eingeben:</div><div id="pin" class="pin">······</div><div class="state"><span id="pairedDot" class="dot"></span><span id="pairedText">Noch kein Handy verbunden</span></div><button id="rotate">Neuen Code anzeigen</button>
-<div class="instructions"><b>Für unterwegs:</b> Tailscale muss auf PC und Handy verbunden sein. Am PC <code>tailscale serve 8787</code> starten, die HTTPS-Adresse hier eintragen und in der App den QR-Code scannen. Der QR-Code enthält die Adresse und den zeitlich begrenzten Kopplungscode.</div>
+<div class="instructions"><b>Ohne Adminrechte:</b> Verbinde PC und Handy mit demselben privaten WLAN oder Handy-Hotspot. Die PC-Adresse wird automatisch vorgeschlagen. Scanne den QR-Code in der ULTRON-App. Nutze kein öffentliches WLAN. Für Zugriff von unterwegs bleibt Tailscale eine optionale Alternative.</div>
 </section>
 <section class="card"><h2>DJI FLY LIVEBILD</h2><img id="frame" class="frame" alt="Livebild der DJI Fly App"><div id="placeholder" class="frame" style="display:grid;place-items:center;color:#718091">Warte auf den ersten Videoframe …</div><div id="notice">Die App überträgt den Bildschirm erst nach deiner Android-Freigabe.</div></section>
 </div>
@@ -32,7 +32,8 @@ async function drawPairQr(pair=null){
   let url=$('serveUrl').value.trim();
   if(url.endsWith('/'))url=url.slice(0,-1);
   const canvas=$('pairQr'), note=$('qrMessage');
-  if(!url.startsWith('https://')){lastPairQrPayload='';canvas.style.display='none';note.textContent='Bitte eine HTTPS-Adresse von Tailscale Serve eingeben.';return}
+  const isLanUrl=(pair?.lanUrls||[]).includes(url);
+  if(!url.startsWith('https://')&&!isLanUrl){lastPairQrPayload='';canvas.style.display='none';note.textContent='Nutze die vorgeschlagene PC-WLAN-Adresse oder eine HTTPS-Adresse von Tailscale.';return}
   try{
     if(!pair)pair=await fetch('/api/pairing',{cache:'no-store'}).then(r=>r.json());
     if(!pair.pin){lastPairQrPayload='';canvas.style.display='none';note.textContent='Erzeuge am PC zuerst einen neuen Kopplungscode.';return}
@@ -49,6 +50,7 @@ async function refresh(){
   try{
     const [pair,status]=await Promise.all([fetch('/api/pairing',{cache:'no-store'}).then(r=>r.json()),fetch('/api/status',{cache:'no-store'}).then(r=>r.json())]);
     $('pin').textContent=pair.pin||'······';
+    if(!$('serveUrl').value.trim()&&pair.lanUrls?.length)$('serveUrl').value=pair.lanUrls[0];
     if($('serveUrl').value.trim())drawPairQr(pair);
     $('pairedDot').classList.toggle('on',status.paired);
     $('pairedText').textContent=status.paired?'Handy gekoppelt · '+(status.frameNumber?'Bild kommt an':'warte auf Videobild'):pair.locked?'Zu viele Versuche · am PC neuen Code erzeugen':'Noch kein Handy verbunden';
