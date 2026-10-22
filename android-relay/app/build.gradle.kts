@@ -25,5 +25,6 @@ android {
 }
 
 dependencies {
-    implementation("androidx.activity:activity-ktx:1.10.0")\n    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("androidx.activity:activity-ktx:1.10.0")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 }
