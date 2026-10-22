@@ -13,7 +13,11 @@ const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.ULTRON_PORT || 8787);
 const HOST = process.env.ULTRON_HOST || '0.0.0.0';
 const MAX_FRAME_BYTES = 900_000;
-const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
+const DEFAULT_MAX_VIDEO_BYTES = 20 * 1024 * 1024 * 1024;
+const configuredMaxVideoBytes = Number(process.env.ULTRON_MAX_VIDEO_BYTES || DEFAULT_MAX_VIDEO_BYTES);
+const MAX_VIDEO_BYTES = Number.isSafeInteger(configuredMaxVideoBytes) && configuredMaxVideoBytes > 0 ? configuredMaxVideoBytes : DEFAULT_MAX_VIDEO_BYTES;
+const configuredRequestTimeout = Number(process.env.ULTRON_REQUEST_TIMEOUT_MS || 2 * 60 * 60 * 1000);
+const REQUEST_TIMEOUT_MS = Number.isSafeInteger(configuredRequestTimeout) && configuredRequestTimeout >= 0 ? configuredRequestTimeout : 2 * 60 * 60 * 1000;
 const MAX_MIC_CHUNK_BYTES = 64 * 1024;
 const FRAME_INTERVAL_MS = 160;
 const MEDIA_DIR = path.join(ROOT, 'media');
@@ -31,6 +35,16 @@ let latestMicChunk = null;
 let micSequence = 0;
 let lastMicAt = 0;
 
+function formatGigabytes(bytes) {
+  return (bytes / (1024 ** 3)).toFixed(1) + ' GB';
+}
+function rejectDeclaredOversize(req, res) {
+  const contentLength = Number(req.headers['content-length'] || 0);
+  if (!Number.isFinite(contentLength) || contentLength <= MAX_VIDEO_BYTES) return false;
+  req.resume();
+  json(res, 413, { error: 'Video ist ' + formatGigabytes(contentLength) + ' groß. Limit: ' + formatGigabytes(MAX_VIDEO_BYTES) + '. Limit mit ULTRON_MAX_VIDEO_BYTES anpassen.' });
+  return true;
+}
 function newPairing() {
   pinAttempts = 0;
   pinLockedUntil = 0;
@@ -107,6 +121,34 @@ function run(command, args, onProgress) {
     child.on('close', code => code === 0 ? resolve() : reject(new Error(`${command} wurde mit Exit-Code ${code} beendet. ${tail.slice(-1200)}`)));
   });
 }
+async function findSparseModelDirectory(work) {
+  const sparseRoot = path.join(work, 'sparse');
+  const directories = [sparseRoot];
+  try {
+    const children = await fsp.readdir(sparseRoot, { withFileTypes: true });
+    directories.push(...children.filter(entry => entry.isDirectory()).map(entry => path.join(sparseRoot, entry.name)));
+  } catch {}
+  let best = null;
+  let bestSize = -1;
+  for (const directory of directories) {
+    for (const name of ['points3D.bin', 'points3D.txt']) {
+      try {
+        const stat = await fsp.stat(path.join(directory, name));
+        if (stat.isFile() && stat.size > bestSize) { best = directory; bestSize = stat.size; }
+      } catch {}
+    }
+  }
+  return best;
+}
+async function createSparsePreview(work) {
+  const sparseDirectory = await findSparseModelDirectory(work);
+  if (!sparseDirectory) throw new Error('COLMAP hat kein ausgerichtetes 3D-Punktmodell gespeichert.');
+  const previewPath = path.join(work, 'ultron-punktwolke.ply');
+  await run(process.env.ULTRON_COLMAP || 'colmap', ['model_converter', '--input_path', sparseDirectory, '--output_path', previewPath, '--output_type', 'PLY']);
+  const stat = await fsp.stat(previewPath);
+  if (!stat.isFile() || stat.size < 100) throw new Error('COLMAP hat eine leere 3D-Punktwolke exportiert.');
+  return previewPath;
+}
 async function reconstruct(job) {
   const work = path.join(MEDIA_DIR, job.id);
   const images = path.join(work, 'images');
@@ -115,8 +157,14 @@ async function reconstruct(job) {
   await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', job.videoPath, '-map', '0:v:0', '-an', '-sn', '-dn', '-vf', "fps=1,scale='min(1600,iw)':-2", '-q:v', '2', path.join(images, 'frame-%06d.jpg'), '-y'], message => { if (message) job.message = message; });
   const extracted = await fsp.readdir(images);
   if (extracted.length < 8) throw new Error('Zu wenige Frames. Nimm ein längeres Video mit mehreren überlappenden Blickwinkeln auf.');
-  job.state = 'reconstructing'; job.message = `${extracted.length} Frames: COLMAP rekonstruiert die Szene …`;
-  await run(process.env.ULTRON_COLMAP || 'colmap', ['automatic_reconstructor', '--workspace_path', work, '--image_path', images, '--data_type', 'VIDEO', '--quality', 'MEDIUM', '--mesher', 'POISSON'], message => { if (message) job.message = message.slice(0, 240); });
+  job.state = 'reconstructing'; job.message = extracted.length + ' Frames: COLMAP rekonstruiert die Szene …';
+  let reconstructionError = null;
+  try {
+    await run(process.env.ULTRON_COLMAP || 'colmap', ['automatic_reconstructor', '--workspace_path', work, '--image_path', images, '--data_type', 'VIDEO', '--quality', 'MEDIUM', '--mesher', 'POISSON'], message => { if (message) job.message = message.slice(0, 240); });
+  } catch (error) {
+    reconstructionError = error;
+    job.message = 'Dichtes Mesh nicht verfügbar. Ich prüfe, ob eine 3D-Punktwolke erstellt wurde …';
+  }
   const candidates = [
     path.join(work, 'dense', '0', 'meshed-poisson.ply'),
     path.join(work, 'dense', 'meshed-poisson.ply')
@@ -125,9 +173,24 @@ async function reconstruct(job) {
   for (const candidate of candidates) {
     try { await fsp.access(candidate); modelPath = candidate; break; } catch {}
   }
-  if (!modelPath) throw new Error('COLMAP hat keine exportierbare Mesh-Datei erzeugt. Prüfe die Aufnahme und COLMAP-Ausgabe.');
-  const modelName = path.basename(modelPath);
-  job.state = 'done'; job.message = '3D-Rekonstruktion fertig.'; job.modelName = modelName; job.modelPath = modelPath;
+  if (modelPath) {
+    job.state = 'done'; job.message = '3D-Mesh fertig.'; job.modelName = path.basename(modelPath); job.modelType = 'mesh'; job.modelPath = modelPath;
+    return;
+  }
+  try {
+    job.message = 'Erzeuge eine 3D-Punktwolke aus der Kamerabewegung …';
+    modelPath = await createSparsePreview(work);
+    job.state = 'done';
+    job.modelName = path.basename(modelPath);
+    job.modelType = 'pointcloud';
+    job.modelPath = modelPath;
+    job.message = reconstructionError
+      ? '3D-Punktwolke fertig. Ein dichtes Mesh war auf diesem PC nicht verfügbar; die Punktwolke lässt sich in der Ansicht drehen und herunterladen.'
+      : '3D-Punktwolke fertig. COLMAP konnte aus diesem Video keine geschlossene Mesh-Fläche erzeugen.';
+  } catch (fallbackError) {
+    const denseMessage = reconstructionError ? reconstructionError.message : 'COLMAP hat keine Mesh-Datei erzeugt.';
+    throw new Error(denseMessage + ' Zusätzlich konnte keine 3D-Punktwolke exportiert werden: ' + fallbackError.message);
+  }
 }
 
 const server = http.createServer(async (req, res) => {
@@ -211,13 +274,14 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/video') {
       if (!isLocal(req)) return json(res, 403, { error: 'Video upload is available from the PC page only.' });
       if (!req.headers['content-type']?.startsWith('video/')) return json(res, 415, { error: 'Bitte eine MP4- oder MOV-Videodatei auswählen.' });
+      if (rejectDeclaredOversize(req, res)) return;
       await fsp.mkdir(MEDIA_DIR, { recursive: true });
       const id = crypto.randomUUID();
       const videoPath = path.join(MEDIA_DIR, `${id}.mp4`);
       let size = 0;
       const limiter = new Transform({ transform(chunk, _encoding, callback) {
         size += chunk.length;
-        callback(size > MAX_VIDEO_BYTES ? Object.assign(new Error('Video größer als 2 GB.'), { status: 413 }) : null, chunk);
+        callback(size > MAX_VIDEO_BYTES ? Object.assign(new Error('Video überschreitet das Upload-Limit von ' + formatGigabytes(MAX_VIDEO_BYTES) + '.'), { status: 413 }) : null, chunk);
       } });
       await pipeline(req, limiter, fs.createWriteStream(videoPath, { flags: 'wx' }));
       jobs.set(id, { id, state: 'uploaded', message: 'Video bereit.', videoPath, createdAt: Date.now() }); latestJobId = id;
@@ -226,6 +290,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/video-phone') {
       if (!isTrustedRelay(req) || !authorized(req)) return json(res, 401, { error: 'Handy ist nicht gekoppelt oder nicht im privaten WLAN/Tailscale.' });
       if (!req.headers['content-type']?.startsWith('video/')) return json(res, 415, { error: 'Bitte eine MP4- oder MOV-Videodatei senden.' });
+      if (rejectDeclaredOversize(req, res)) return;
       await fsp.mkdir(MEDIA_DIR, { recursive: true });
       const id = crypto.randomUUID();
       const videoPath = path.join(MEDIA_DIR, `${id}.mp4`);
@@ -243,7 +308,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/3d/latest') {
       if (!isLocal(req)) return json(res, 403, { error: '3D-Aufträge sind nur am PC sichtbar.' });
       const job = latestJobId ? jobs.get(latestJobId) : null;
-      return json(res, 200, job ? { id: job.id, state: job.state, message: job.message, modelName: job.modelName || '' } : { state: 'idle', message: 'Noch kein 3D-Video empfangen.' });
+      return json(res, 200, job ? { id: job.id, state: job.state, message: job.message, modelName: job.modelName || '', modelType: job.modelType || '' } : { state: 'idle', message: 'Noch kein 3D-Video empfangen.' });
     }
     if (req.method === 'POST' && url.pathname === '/api/reconstruct') {
       if (!isLocal(req)) return json(res, 403, { error: '3D-Aufträge können nur lokal am PC gestartet werden.' });
@@ -260,7 +325,7 @@ const server = http.createServer(async (req, res) => {
       const id = url.pathname.split('/').pop();
       const job = jobs.get(id);
       if (!job) return json(res, 404, { error: 'Auftrag nicht gefunden.' });
-      return json(res, 200, { id, state: job.state, message: job.message, modelName: job.modelName || '' });
+      return json(res, 200, { id, state: job.state, message: job.message, modelName: job.modelName || '', modelType: job.modelType || '' });
     }
     if (req.method === 'GET' && url.pathname.startsWith('/api/model/')) {
       if (!isLocal(req)) return json(res, 403, { error: '3D-Modelle können nur lokal am PC geladen werden.' });
@@ -283,6 +348,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.requestTimeout = REQUEST_TIMEOUT_MS;
 server.listen(PORT, HOST, () => {
   console.log(`ULTRON PC Relay läuft auf Port ${PORT}.`);
   console.log('Lokales Dashboard: http://127.0.0.1:' + PORT);
