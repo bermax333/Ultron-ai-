@@ -14,6 +14,7 @@ const PORT = Number(process.env.ULTRON_PORT || 8787);
 const HOST = process.env.ULTRON_HOST || '0.0.0.0';
 const MAX_FRAME_BYTES = 900_000;
 const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_MIC_CHUNK_BYTES = 64 * 1024;
 const FRAME_INTERVAL_MS = 160;
 const MEDIA_DIR = path.join(ROOT, 'media');
 const jobs = new Map();
@@ -25,6 +26,9 @@ let pairedToken = null;
 let latestFrame = null;
 let lastFrameAt = 0;
 let frameNumber = 0;
+let latestMicChunk = null;
+let micSequence = 0;
+let lastMicAt = 0;
 
 function newPairing() {
   pinAttempts = 0;
@@ -107,7 +111,7 @@ async function reconstruct(job) {
   const images = path.join(work, 'images');
   await fsp.mkdir(images, { recursive: true });
   job.state = 'frames'; job.message = 'Videoframes werden vorbereitet …';
-  await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', job.videoPath, '-vf', "fps=1/2,scale='min(1920,iw)':-2", '-q:v', '2', path.join(images, 'frame-%06d.jpg'), '-y'], message => { if (message) job.message = message; });
+  await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', job.videoPath, '-map', '0:v:0', '-an', '-sn', '-dn', '-vf', "fps=1,scale='min(1600,iw)':-2", '-q:v', '2', path.join(images, 'frame-%06d.jpg'), '-y'], message => { if (message) job.message = message; });
   const extracted = await fsp.readdir(images);
   if (extracted.length < 8) throw new Error('Zu wenige Frames. Nimm ein längeres Video mit mehreren überlappenden Blickwinkeln auf.');
   job.state = 'reconstructing'; job.message = `${extracted.length} Frames: COLMAP rekonstruiert die Szene …`;
@@ -155,7 +159,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/unpair') {
       if (!isLocal(req)) return json(res, 403, { error: 'Unpairing is available on the PC only.' });
-      pairedToken = null; pairing = newPairing(); latestFrame = null; frameNumber = 0;
+      pairedToken = null; pairing = newPairing(); latestFrame = null; frameNumber = 0; latestMicChunk = null; micSequence = 0;
       return json(res, 200, { ok: true });
     }
     if (req.method === 'POST' && url.pathname === '/api/frame') {
@@ -168,6 +172,24 @@ const server = http.createServer(async (req, res) => {
       latestFrame = frame; lastFrameAt = Date.now(); frameNumber++;
       return json(res, 200, { ok: true, frameNumber, receivedAt: lastFrameAt });
     }
+    if (req.method === 'POST' && url.pathname === '/api/mic') {
+      if (!isTrustedRelay(req)) return json(res, 403, { error: 'Mikrofonstream nur im privaten WLAN oder über Tailscale erlaubt.' });
+      if (!authorized(req)) return json(res, 401, { error: 'Handy ist nicht gekoppelt.' });
+      if (!req.headers['content-type']?.startsWith('audio/wav')) return json(res, 415, { error: 'Mikrofon sendet kein WAV-Audio.' });
+      const chunk = await readBody(req, MAX_MIC_CHUNK_BYTES);
+      if (chunk.length < 44) return json(res, 400, { error: 'Leerer Mikrofonabschnitt.' });
+      latestMicChunk = chunk; lastMicAt = Date.now(); micSequence++;
+      return json(res, 200, { ok: true, sequence: micSequence, receivedAt: lastMicAt });
+    }
+    if (req.method === 'GET' && url.pathname === '/api/mic/latest') {
+      if (!isLocal(req)) return json(res, 403, { error: 'Mikrofonwiedergabe ist nur auf dem PC verfügbar.' });
+      const after = Number(url.searchParams.get('after') || 0);
+      if (!latestMicChunk || !Number.isFinite(after) || micSequence <= after) {
+        res.writeHead(204, { 'cache-control': 'no-store' }); res.end(); return;
+      }
+      res.writeHead(200, { 'content-type': 'audio/wav', 'cache-control': 'no-store', 'content-length': latestMicChunk.length, 'x-ultron-mic-sequence': String(micSequence) });
+      res.end(latestMicChunk); return;
+    }
     if (req.method === 'GET' && url.pathname === '/api/frame') {
       if (!isLocal(req)) return json(res, 403, { error: 'Live view is available on the PC only.' });
       if (!latestFrame) return json(res, 404, { error: 'Noch kein Bild empfangen.' });
@@ -176,7 +198,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/status') {
       if (!isLocal(req)) return json(res, 403, { error: 'Status is available on the PC only.' });
-      return json(res, 200, { paired: !!pairedToken, frameNumber, lastFrameAt });
+      return json(res, 200, { paired: !!pairedToken, frameNumber, lastFrameAt, micSequence, lastMicAt });
     }
     if (req.method === 'POST' && url.pathname === '/api/video') {
       if (!isLocal(req)) return json(res, 403, { error: 'Video upload is available from the PC page only.' });
@@ -226,7 +248,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 202, { id: job.id, state: job.state });
     }
     if (req.method === 'GET' && url.pathname.startsWith('/api/reconstruct/')) {
-      if (!isLocal(req)) return json(res, 403, { error: '3D-Status ist nur am PC verfügbar.' });
+      if (!isLocal(req) && !(isTrustedRelay(req) && authorized(req))) return json(res, 403, { error: '3D-Status ist nur am PC und für das gekoppelte Handy verfügbar.' });
       const id = url.pathname.split('/').pop();
       const job = jobs.get(id);
       if (!job) return json(res, 404, { error: 'Auftrag nicht gefunden.' });
@@ -244,7 +266,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/api/rotate-code') {
       if (!isLocal(req)) return json(res, 403, { error: 'Code rotation is available on the PC only.' });
-      pairedToken = null; latestFrame = null; frameNumber = 0; pairing = newPairing();
+      pairedToken = null; latestFrame = null; frameNumber = 0; latestMicChunk = null; micSequence = 0; pairing = newPairing();
       return json(res, 200, { pin: pairing.pin, expiresAt: pairing.expiresAt, paired: false });
     }
     json(res, 404, { error: 'Not found.' });

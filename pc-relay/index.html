@@ -21,7 +21,7 @@ button:disabled{opacity:.55;cursor:wait}#modelViewer{display:none;height:430px;b
 <div class="muted">Falls Scannen nicht klappt, Code manuell eingeben:</div><div id="pin" class="pin">······</div><div class="state"><span id="pairedDot" class="dot"></span><span id="pairedText">Noch kein Handy verbunden</span></div><button id="rotate">Neuen Code anzeigen</button>
 <div class="instructions"><b>Ohne Adminrechte:</b> Verbinde PC und Handy mit demselben privaten WLAN oder Handy-Hotspot. Die PC-Adresse wird automatisch vorgeschlagen. Scanne den QR-Code in der ULTRON-App. Nutze kein öffentliches WLAN. Für Zugriff von unterwegs bleibt Tailscale eine optionale Alternative.</div>
 </section>
-<section class="card"><h2>DJI FLY LIVEBILD</h2><img id="frame" class="frame" alt="Livebild der DJI Fly App"><div id="placeholder" class="frame" style="display:grid;place-items:center;color:#718091">Warte auf den ersten Videoframe …</div><div id="notice">Die App überträgt den Bildschirm erst nach deiner Android-Freigabe.</div></section>
+<section class="card"><h2>DJI FLY LIVEBILD</h2><img id="frame" class="frame" alt="Livebild der DJI Fly App"><div id="placeholder" class="frame" style="display:grid;place-items:center;color:#718091">Warte auf den ersten Videoframe …</div><div id="notice">Die App überträgt den Bildschirm erst nach deiner Android-Freigabe.</div><button id="micListen">PC-Mikrofon hören</button><div id="micStatus" class="muted">Handy-Mikrofon wird erst nach deiner Freigabe übertragen.</div></section>
 </div>
 <section class="card reconstruct"><h2>LOKALE 3D-REKONSTRUKTION</h2><p class="muted">Wähle hier eine Datei oder sende sie aus der gekoppelten Android-App. ULTRON extrahiert lokal überlappende Frames und COLMAP erstellt daraus ein Mesh. Die Datei bleibt auf diesem PC.</p><input id="videoFile" type="file" accept="video/mp4,video/quicktime,.mp4,.mov"><button id="make3d">Video hochladen und 3D-Modell erstellen</button><div class="progress"><i id="progressBar"></i></div><div id="modelStatus" class="muted" style="margin-top:10px">Benötigt FFmpeg und COLMAP auf dem PC.</div><div id="modelViewer"><div class="viewer-tools"><button id="spinToggle">Drehung starten</button><button id="viewReset">Ansicht zurücksetzen</button></div><div class="viewer-hint">Ziehen: drehen · Mausrad: zoomen · Touch: bewegen/zoomen</div></div><p><a id="modelLink" class="model-link">3D-Mesh (PLY) herunterladen</a></p><div class="instructions"><b>Für ein gutes Modell:</b> ruhig und langsam fliegen, das Motiv aus mehreren Seiten mit viel Überlappung filmen, ausreichend Licht und sichtbare Oberflächentextur. Gleichförmige Flächen, schnelle Schwenks und bewegte Motive verschlechtern die Rekonstruktion. Die 3D-Verarbeitung startet nach dem Flug aus der Originaldatei, nicht aus dem komprimierten Livebild.</div></section></main>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
@@ -103,6 +103,34 @@ async function refreshLatest(){
   }catch(_){}
 }
 refresh();setInterval(refresh,200);refreshLatest();setInterval(refreshLatest,2500);
+let micListening=false,micSequence=0,micContext=null,micNextStart=0;
+async function pollMic(){
+  if(!micListening)return;
+  try{
+    const response=await fetch('/api/mic/latest?after='+micSequence,{cache:'no-store'});
+    if(response.status===200){
+      micSequence=Number(response.headers.get('x-ultron-mic-sequence')||micSequence);
+      const audio=await micContext.decodeAudioData(await response.arrayBuffer());
+      const source=micContext.createBufferSource();source.buffer=audio;source.connect(micContext.destination);
+      const now=micContext.currentTime;
+      if(micNextStart<now-0.2||micNextStart>now+1.5)micNextStart=now+0.05;
+      const startAt=Math.max(now+0.02,micNextStart);source.start(startAt);micNextStart=startAt+audio.duration;
+      $('micStatus').textContent='Handy-Mikrofon wird am PC wiedergegeben.';
+    }else if(response.status!==204)throw new Error('PC kann den Mikrofonton nicht abrufen.');
+  }catch(error){$('micStatus').textContent='Mikrofonfehler: '+(error.message||'Verbindung prüfen');}
+  if(micListening)setTimeout(pollMic,120);
+}
+$('micListen').onclick=async()=>{
+  if(micListening){micListening=false;$('micListen').textContent='PC-Mikrofon hören';$('micStatus').textContent='Wiedergabe gestoppt.';await micContext?.close();micContext=null;return}
+  try{
+    micContext=new (window.AudioContext||window.webkitAudioContext)();await micContext.resume();
+    const status=await fetch('/api/status',{cache:'no-store'}).then(r=>r.json());micSequence=status.micSequence||0;
+    micNextStart=0;micListening=true;$('micListen').textContent='Mikrofonwiedergabe stoppen';$('micStatus').textContent='Warte auf Handy-Mikrofon …';pollMic();
+  }catch(error){$('micStatus').textContent='Audio konnte nicht gestartet werden: '+(error.message||'Browser prüfen');micListening=false;}
+};
+</script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}
 </script>
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';

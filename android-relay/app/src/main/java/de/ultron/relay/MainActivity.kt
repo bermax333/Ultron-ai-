@@ -3,6 +3,7 @@ package de.ultron.relay
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -27,13 +28,16 @@ import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
     private val io = Executors.newSingleThreadExecutor()
+    private val jobMonitor = Executors.newSingleThreadExecutor()
     private lateinit var serverField: EditText
     private lateinit var pinField: EditText
     private lateinit var status: TextView
     private lateinit var pairButton: Button
     private lateinit var scanButton: Button
     private lateinit var startButton: Button
+    private lateinit var micButton: Button
     private lateinit var videoButton: Button
+    private var microphoneRunning = false
     private var token: String? = null
     private var baseUrl: String = ""
 
@@ -81,6 +85,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startMicrophone()
+        else status.text = "Mikrofonfreigabe verweigert. ULTRON erhält kein Handyaudio."
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         buildUi()
@@ -126,6 +135,23 @@ class MainActivity : ComponentActivity() {
         root.addView(pairButton)
         startButton = Button(this).apply { text = "DJI-Fly-Bild freigeben"; isEnabled = false; setOnClickListener { requestCapture() } }
         root.addView(startButton)
+        micButton = Button(this).apply {
+            text = "Handy-Mikrofon an ULTRON senden"
+            isEnabled = false
+            setOnClickListener {
+                if (microphoneRunning) {
+                    stopService(Intent(this@MainActivity, MicRelayService::class.java))
+                    microphoneRunning = false
+                    micButton.text = "Handy-Mikrofon an ULTRON senden"
+                    status.text = "Mikrofonstream gestoppt."
+                } else if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    startMicrophone()
+                } else {
+                    microphonePermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                }
+            }
+        }
+        root.addView(micButton)
         videoButton = Button(this).apply {
             text = "Neo-Video für 3D an ULTRON senden"
             isEnabled = false
@@ -135,7 +161,13 @@ class MainActivity : ComponentActivity() {
         root.addView(label("Nach dem Flug: Video in DJI Fly aufs Handy laden, hier auswählen und an den PC senden. Die 3D-Rekonstruktion läuft lokal am PC.", 12f, 0xffa9b5c1.toInt()).apply { setPadding(0, 6, 0, 4) })
         root.addView(Button(this).apply {
             text = "Stream stoppen"
-            setOnClickListener { stopService(Intent(this@MainActivity, ScreenRelayService::class.java)); status.text = "Stream gestoppt." }
+            setOnClickListener {
+                stopService(Intent(this@MainActivity, ScreenRelayService::class.java))
+                stopService(Intent(this@MainActivity, MicRelayService::class.java))
+                microphoneRunning = false
+                micButton.text = "Handy-Mikrofon an ULTRON senden"
+                status.text = "Bild- und Mikrofonstream gestoppt."
+            }
         })
         status = label("Noch nicht gekoppelt. Das Bild wird erst nach deiner Android-Freigabe übertragen.", 13f, 0xffa9b5c1.toInt()).apply {
             setPadding(0, 16, 0, 0)
@@ -185,6 +217,7 @@ class MainActivity : ComponentActivity() {
                         token = newToken
                         baseUrl = url
                         startButton.isEnabled = true
+                        micButton.isEnabled = true
                         videoButton.isEnabled = true
                         pinField.text.clear()
                         status.text = "Gekoppelt. Tippe auf „DJI-Fly-Bild freigeben“ und bestätige Androids Bildschirmfreigabe."
@@ -227,8 +260,11 @@ class MainActivity : ComponentActivity() {
                 val response = if (code in 200..299) uploadConnection.inputStream else uploadConnection.errorStream
                 val json = JSONObject(response.bufferedReader().use { it.readText() })
                 runOnUiThread {
-                    if (code in 200..299) status.text = "Video am PC angekommen. ULTRON erstellt jetzt das 3D-Modell."
-                    else status.text = json.optString("error", "Video-Upload fehlgeschlagen.")
+                    if (code in 200..299) {
+                        val jobId = json.optString("id")
+                        status.text = "Video am PC angekommen. 3D-Rekonstruktion läuft …"
+                        if (jobId.isNotBlank()) monitorReconstruction(jobId, baseUrl, currentToken)
+                    } else status.text = json.optString("error", "Video-Upload fehlgeschlagen.")
                     videoButton.isEnabled = token != null
                 }
             } catch (error: Exception) {
@@ -242,6 +278,53 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun monitorReconstruction(id: String, serverUrl: String, authToken: String) {
+        jobMonitor.execute {
+            while (!Thread.currentThread().isInterrupted) {
+                var connection: HttpURLConnection? = null
+                try {
+                    connection = (URL("$serverUrl/api/reconstruct/$id").openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 10_000
+                        readTimeout = 10_000
+                        setRequestProperty("Authorization", "Bearer $authToken")
+                    }
+                    val code = connection.responseCode
+                    val response = if (code in 200..299) connection.inputStream else connection.errorStream
+                    val json = JSONObject(response.bufferedReader().use { it.readText() })
+                    if (code !in 200..299) throw IllegalStateException(json.optString("error", "3D-Status konnte nicht gelesen werden."))
+                    val state = json.optString("state")
+                    val message = json.optString("message", state)
+                    runOnUiThread { status.text = message }
+                    if (state == "done" || state == "error") return@execute
+                } catch (error: Exception) {
+                    runOnUiThread { status.text = "3D-Status nicht erreichbar: ${error.message ?: "Verbindung prüfen"}" }
+                    return@execute
+                } finally {
+                    connection?.disconnect()
+                }
+                try { Thread.sleep(2500) } catch (_: InterruptedException) { return@execute }
+            }
+        }
+    }
+
+    private fun startMicrophone() {
+        if (token == null || baseUrl.isBlank()) { status.text = "Kopple zuerst mit ULTRON."; return }
+        try {
+            val intent = Intent(this, MicRelayService::class.java).apply {
+                putExtra(MicRelayService.EXTRA_URL, baseUrl)
+                putExtra(MicRelayService.EXTRA_TOKEN, token)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+            microphoneRunning = true
+            micButton.text = "Mikrofonstream stoppen"
+            status.text = "Handy-Mikrofon wird übertragen. Die Wiedergabe am PC muss gestartet werden."
+        } catch (error: Exception) {
+            microphoneRunning = false
+            micButton.text = "Handy-Mikrofon an ULTRON senden"
+            status.text = "Mikrofon konnte nicht gestartet werden: ${error.message ?: "Berechtigung prüfen"}"
+        }
+    }
+
     private fun requestCapture() {
         if (token == null) { status.text = "Kopple zuerst mit ULTRON."; return }
         val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -250,6 +333,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         io.shutdownNow()
+        jobMonitor.shutdownNow()
         super.onDestroy()
     }
 }
