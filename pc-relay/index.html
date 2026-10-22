@@ -21,7 +21,7 @@ button:disabled{opacity:.55;cursor:wait}input[type=file]{width:100%;margin:10px 
 </section>
 <section class="card"><h2>DJI FLY LIVEBILD</h2><img id="frame" class="frame" alt="Livebild der DJI Fly App"><div id="placeholder" class="frame" style="display:grid;place-items:center;color:#718091">Warte auf den ersten Videoframe …</div><div id="notice">Die App überträgt den Bildschirm erst nach deiner Android-Freigabe.</div></section>
 </div>
-<section class="card reconstruct"><h2>LOKALE 3D-REKONSTRUKTION</h2><p class="muted">Wähle die Originalaufnahme vom DJI Neo. ULTRON extrahiert lokal überlappende Frames und COLMAP erstellt daraus ein Mesh. Die Datei bleibt auf diesem PC.</p><input id="videoFile" type="file" accept="video/mp4,video/quicktime,.mp4,.mov"><button id="make3d">Video hochladen und 3D-Modell erstellen</button><div class="progress"><i id="progressBar"></i></div><div id="modelStatus" class="muted" style="margin-top:10px">Benötigt FFmpeg und COLMAP auf dem PC.</div><p><a id="modelLink" class="model-link">3D-Mesh (PLY) herunterladen</a></p><div class="instructions"><b>Für ein gutes Modell:</b> ruhig und langsam fliegen, das Motiv aus mehreren Seiten mit viel Überlappung filmen, ausreichend Licht und sichtbare Oberflächentextur. Gleichförmige Flächen, schnelle Schwenks und bewegte Motive verschlechtern die Rekonstruktion. Die 3D-Verarbeitung startet nach dem Flug aus der Originaldatei, nicht aus dem komprimierten Livebild.</div></section></main>
+<section class="card reconstruct"><h2>LOKALE 3D-REKONSTRUKTION</h2><p class="muted">Wähle hier eine Datei oder sende sie aus der gekoppelten Android-App. ULTRON extrahiert lokal überlappende Frames und COLMAP erstellt daraus ein Mesh. Die Datei bleibt auf diesem PC.</p><input id="videoFile" type="file" accept="video/mp4,video/quicktime,.mp4,.mov"><button id="make3d">Video hochladen und 3D-Modell erstellen</button><div class="progress"><i id="progressBar"></i></div><div id="modelStatus" class="muted" style="margin-top:10px">Benötigt FFmpeg und COLMAP auf dem PC.</div><p><a id="modelLink" class="model-link">3D-Mesh (PLY) herunterladen</a></p><div class="instructions"><b>Für ein gutes Modell:</b> ruhig und langsam fliegen, das Motiv aus mehreren Seiten mit viel Überlappung filmen, ausreichend Licht und sichtbare Oberflächentextur. Gleichförmige Flächen, schnelle Schwenks und bewegte Motive verschlechtern die Rekonstruktion. Die 3D-Verarbeitung startet nach dem Flug aus der Originaldatei, nicht aus dem komprimierten Livebild.</div></section></main>
 <script>
 const $=id=>document.getElementById(id);
 async function refresh(){
@@ -68,5 +68,14 @@ async function pollReconstruction(){
     setTimeout(pollReconstruction,2500);
   }catch(error){$('modelStatus').textContent='Statusabfrage fehlgeschlagen: '+error.message;$('make3d').disabled=false}
 }
-refresh();setInterval(refresh,200);
+async function refreshLatest(){
+  try{
+    const response=await fetch('/api/3d/latest',{cache:'no-store'}),job=await response.json();
+    if(job.id){activeJob=job.id;$('modelStatus').textContent=job.message||job.state;$('progressBar').style.width=job.state==='done'?'100%':job.state==='reconstructing'?'65%':job.state==='frames'?'30%':job.state==='error'?'0%':'15%';
+      if(job.state==='done'){$('modelLink').href='/api/model/'+job.id;$('modelLink').style.display='inline'}
+      else $('modelLink').style.display='none';
+    }else if($('modelStatus').textContent==='Benötigt FFmpeg und COLMAP auf dem PC.'){$('modelStatus').textContent=job.message}
+  }catch(_){}
+}
+refresh();setInterval(refresh,200);refreshLatest();setInterval(refreshLatest,2500);
 </script></body></html>
