@@ -163,7 +163,7 @@ class MainActivity : ComponentActivity() {
             try {
                 val mime = contentResolver.getType(uri) ?: "video/mp4"
                 val input = contentResolver.openInputStream(uri) ?: throw IllegalStateException("Videodatei kann nicht geöffnet werden.")
-                connection = (URL(baseUrl + "/api/video-phone").openConnection() as HttpURLConnection).apply {
+                val uploadConnection = (URL(baseUrl + "/api/video-phone").openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 15_000
                     readTimeout = 60_000
@@ -172,11 +172,12 @@ class MainActivity : ComponentActivity() {
                     setRequestProperty("Content-Type", mime)
                     setRequestProperty("Authorization", "Bearer " + currentToken)
                 }
+                connection = uploadConnection
                 input.use { source ->
-                    connection.outputStream.use { output -> source.copyTo(output, 256 * 1024) }
+                    uploadConnection.outputStream.use { output -> source.copyTo(output, 256 * 1024) }
                 }
-                val code = connection.responseCode
-                val response = if (code in 200..299) connection.inputStream else connection.errorStream
+                val code = uploadConnection.responseCode
+                val response = if (code in 200..299) uploadConnection.inputStream else uploadConnection.errorStream
                 val json = JSONObject(response.bufferedReader().use { it.readText() })
                 runOnUiThread {
                     if (code in 200..299) status.text = "Video am PC angekommen. ULTRON erstellt jetzt das 3D-Modell."
