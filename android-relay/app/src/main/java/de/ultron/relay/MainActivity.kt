@@ -12,13 +12,15 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
 
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
     private val io = Executors.newSingleThreadExecutor()
     private lateinit var serverField: EditText
     private lateinit var pinField: EditText
@@ -29,7 +31,7 @@ class MainActivity : Activity() {
     private var baseUrl: String = ""
 
     private val capturePermission = registerForActivityResult(
-        android.app.ActivityResultContracts.StartActivityForResult()
+        ActivityResultContracts.StartActivityForResult()
     ) { result ->
         val data = result.data
         if (result.resultCode == Activity.RESULT_OK && data != null) {
