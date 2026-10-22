@@ -1,55 +1,37 @@
-# ULTRON Neo Relay
+# ULTRON Neo — Handy-App und optionale PC-Relay
 
-A Linux PC relay and Android companion app for the DJI Fly screen and post-flight 3D reconstruction.
+Die Android-App kann ein DJI-Fly-Video direkt auf dem Handy in eine farbige 3D-Punktwolke umrechnen und anzeigen. Für diesen Schritt braucht sie weder PC, WLAN noch Administratorrechte. Die bestehende PC-Relay bleibt optional für Live-Bild, Mikrofon und das Übertragen großer Dateien.
 
-## No-admin local Wi-Fi setup
+## Auf dem Handy verwenden
 
-The PC and phone must be connected to the same **private Wi-Fi network** or a personal hotspot. Do not use public Wi-Fi for screen relay. The PC listens on the private LAN; pairing still requires the short-lived six-digit code and creates a random session token.
+1. Installiere die ULTRON-APK auf Android 10 oder neuer.
+2. Übertrage nach dem Flug das Originalvideo aus DJI Fly auf das Handy.
+3. Öffne ULTRON und tippe auf **DJI-Fly-Video auf Handy in 3D umwandeln**.
+4. Wähle das MP4-Video aus. ULTRON verarbeitet die Bilder lokal und zeigt den Fortschritt in der App.
+5. Nach der Berechnung kannst du die Punktwolke mit einem Finger drehen und mit zwei Fingern zoomen. Die PLY-Datei wird unter **Downloads/ULTRON** gespeichert.
+6. Kopiere die PLY-Datei bei Bedarf per USB-Kabel auf den PC oder teile sie über die Android-Teilen-Funktion. Am Handy kannst du sie später mit **Gespeicherte 3D-Punktwolke öffnen (.PLY)** wieder öffnen.
 
-1. Install Node.js 20+ in your user account.
-2. Extract the project folder.
-3. Run `bash start-ultron-no-admin.sh`. The first run downloads Micromamba and installs FFmpeg and COLMAP into your home folder; it does not use `sudo`. The relay accepts video files up to 20 GB by default and allows up to two hours for a slow upload. Both limits can be raised with `ULTRON_MAX_VIDEO_BYTES` and `ULTRON_REQUEST_TIMEOUT_MS`.
-4. Open `http://127.0.0.1:8787` on the PC. The page displays a QR code for the PC's private WLAN address.
-5. Scan the QR code in ULTRON Relay on the phone. Allow camera access for QR scanning, then allow Android screen sharing when you start the live preview.
-6. Connect the DJI Goggles N3 to the Galaxy phone with a USB-C data cable and open DJI Fly.
+Die App nutzt OpenCV direkt auf Android. Für die Berechnung werden bis zu 60 verkleinerte Videobilder ausgewertet. Eine Internetverbindung ist für die Berechnung nicht nötig; sie wird nur zum Herunterladen/Installieren der App gebraucht.
 
-The QR and phone relay use plain HTTP only to the private LAN address. Use a trusted private hotspot or Wi-Fi. For connections when the phone and PC are on different networks, use Tailscale Serve with HTTPS on both devices; do not expose the relay port through a router rule or public tunnel.
+## Aufnahme für bessere Ergebnisse
 
-## Flight and 3D model
+- Fliege langsam und filme dasselbe Objekt aus mehreren überlappenden Blickwinkeln.
+- Halte Abstand und Bewegung möglichst gleichmäßig und vermeide schnelle Schwenks.
+- Strukturen und Kanten helfen der Berechnung. Wasser, Glas, glatte Flächen, wenig Licht und bewegte Motive liefern wenig stabile Punkte.
+- Eine gerade Vorwärtsfahrt oder reine Drehung liefert oft zu wenig Tiefeninformation.
 
-The relay does not control the aircraft. Flight control stays with the DJI FPV Remote Controller 3 and goggles. Android screen capture streams the DJI Fly display to the PC after the user approves the system prompt.
+Die lokale Handy-Version erstellt eine **sparse farbige 3D-Punktwolke** aus erkannten Bildmerkmalen. Sie ist drehbar und als PLY in Blender und anderen 3D-Programmen importierbar. Sie ist keine geschlossene, texturierte Mesh-Oberfläche und keine GPS-Karte. Die rekonstruierten Maße sind relativ und nicht in Metern kalibriert.
 
-After the flight, use DJI Fly QuickTransfer to copy the Neo's original MP4 to the phone. For large originals, copy the file to the PC and choose or drop it directly into the PC dashboard; that transfer stays on the PC and does not go through Wi-Fi. Alternatively, send the video from ULTRON Relay on the phone. FFmpeg extracts frames and COLMAP creates a PLY mesh when dense reconstruction is available. If dense meshing cannot run on the PC, ULTRON exports and previews the sparse 3D point cloud instead. This is post-flight photogrammetry, not live 3D reconstruction or a GPS map.
+## Android APK bauen
 
-For a good reconstruction, film the subject slowly from multiple overlapping angles, with good light and visible texture. The relay samples one frame per second to keep the COLMAP job manageable. Smooth or moving surfaces, fast pans, and short clips reduce quality. The interactive PLY preview loads its Three.js modules from the bundled PC files and works offline.
+Öffne `android-relay` in Android Studio, synchronisiere Gradle und wähle **Build > Build APK(s)**. Der GitHub-Actions-Workflow **Build Android relay APK** baut die Debug-APK und ein Quellcode-ZIP als `ultron-relay-downloads`-Artefakt.
 
-## Requirements and manual setup
+Die lokale 3D-Berechnung verwendet `org.opencv:opencv:4.10.0`; die native Android-Bibliothek wird mit der APK ausgeliefert. Die App verwendet `MediaMetadataRetriever`, um verkleinerte Bilder direkt aus dem gewählten Video zu lesen.
 
-The no-admin launcher requires Node.js 20+, curl, and tar. It installs FFmpeg and COLMAP into `$HOME/.local/share/ultron-neo-env` using Micromamba. No package-manager or administrator access is needed. If Node.js is missing, install it in your user account with nvm (the project requires Node 20+).
+## Optionale PC-Relay
 
-To start manually when Node.js, FFmpeg, and COLMAP are already available on `PATH`, run:
+PC und Handy müssen für Relay-Funktionen im selben privaten WLAN oder persönlichen Hotspot sein. Auf dem PC werden Node.js 20+ und `bash start-ultron-no-admin.sh` verwendet; der Launcher richtet FFmpeg und COLMAP im Benutzerkonto ein, ohne `sudo`.
 
-```sh
-bash start-ultron.sh
-```
+Öffne `http://127.0.0.1:8787` auf dem PC und kopple die ULTRON-App per QR-Code. Die PC-Kopplung wird nur für den DJI-Fly-Bildschirmstream, das Handy-Mikrofon und optionalen Video-Upload gebraucht. Sie ist nicht Teil der lokalen 3D-Berechnung.
 
-The dashboard is available on `http://127.0.0.1:8787`; the phone pairing QR uses the LAN address shown by the dashboard. Keep the PC server terminal open.
-
-## Android APK
-
-Open `android-relay` in Android Studio, sync Gradle, then choose **Build > Build APK(s)**. The **Build Android relay APK** GitHub Actions workflow produces the installable debug APK and source ZIP as the `ultron-relay-downloads` artifact.
-
-The app requires Android 10 or later. Android asks for screen-capture permission whenever a new screen stream starts. To send sound, tap **Handy-Mikrofon an ULTRON senden**, allow microphone access, then click **PC-Mikrofon hören** on the PC dashboard. Stop either stream with **Stream stoppen**. The microphone feature sends audio from the phone microphone only; it does not record sound from the Neo or goggles. The QR scanner uses the camera only when you tap **QR-Code scannen**.
-
-## Troubleshooting
-
-- The QR generator and Three.js viewer are bundled and served locally by the PC relay. Open the dashboard on the PC at `http://127.0.0.1:8787` (not by its LAN IP); the QR uses the private Wi-Fi address selected in the address field. If the QR does not connect, pick another PC address from the field's suggestions and confirm that both devices are on the same non-guest Wi-Fi.
-- For microphone streaming, pair first, start **Handy-Mikrofon an ULTRON senden** in the app, grant Android microphone access, then click **PC-Mikrofon hören** on the PC. Error messages now appear in the app and on the PC page. This streams the phone's microphone; it does not capture audio from the Neo or Goggles.
-- For 3D processing, start the PC with `bash start-ultron-no-admin.sh`, which installs FFmpeg and COLMAP in the user account. Choose the original MP4 after DJI Fly QuickTransfer; the dashboard allows up to 20 GB by default and shows upload progress. Use a slow clip with at least eight clear, overlapping views. ULTRON shows a PLY mesh or falls back to a PLY 3D point cloud if dense meshing is unavailable. Neither output is a GPS map.
-
-## Privacy and limitations
-
-- The screen preview and original video are sent to the PC on the selected private connection.
-- The PC stores uploaded video, extracted frames, and models under `pc-relay/media/`.
-- Live view is a relayed screen preview; the app does not control DJI Fly or the Neo.
-- Physical pairing with the Neo, Goggles N3, and Galaxy A55 has not been verified.
+Screenstreaming überträgt nach Android-Freigabe den Bildschirm von DJI Fly. Das Mikrofon sendet das Handy-Mikrofon; es nimmt keinen Ton direkt aus Neo oder Goggles auf. ULTRON steuert die Drohne nicht. Flugsteuerung bleibt bei der DJI-Fernsteuerung.
