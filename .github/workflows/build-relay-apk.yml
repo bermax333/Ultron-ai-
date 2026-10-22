@@ -1,6 +1,10 @@
 name: Build Android relay APK
 
 on:
+  pull_request:
+    paths:
+      - "android-relay/**"
+      - ".github/workflows/build-relay-apk.yml"
   workflow_dispatch:
 
 permissions:
