@@ -27,7 +27,7 @@ async function refresh(){
     const [pair,status]=await Promise.all([fetch('/api/pairing',{cache:'no-store'}).then(r=>r.json()),fetch('/api/status',{cache:'no-store'}).then(r=>r.json())]);
     $('pin').textContent=pair.pin||'······';
     $('pairedDot').classList.toggle('on',status.paired);
-    $('pairedText').textContent=status.paired?'Handy gekoppelt · '+(status.frameNumber?'Bild kommt an':'warte auf Videobild'):'Noch kein Handy verbunden';
+    $('pairedText').textContent=status.paired?'Handy gekoppelt · '+(status.frameNumber?'Bild kommt an':'warte auf Videobild'):pair.locked?'Zu viele Versuche · am PC neuen Code erzeugen':'Noch kein Handy verbunden';
     if(status.frameNumber){
       const response=await fetch('/api/frame?frame='+status.frameNumber,{cache:'no-store'});
       if(response.ok){
