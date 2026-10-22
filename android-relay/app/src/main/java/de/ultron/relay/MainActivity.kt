@@ -39,6 +39,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var startButton: Button
     private lateinit var micButton: Button
     private lateinit var videoButton: Button
+    private lateinit var localVideoButton: Button
+    private lateinit var openModelButton: Button
     private var microphoneRunning = false
     private var token: String? = null
     private var baseUrl: String = ""
@@ -74,6 +76,14 @@ class MainActivity : ComponentActivity() {
 
     private val videoPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) uploadVideo(uri)
+    }
+
+    private val localVideoPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) buildLocalModel(uri)
+    }
+
+    private val modelPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) openPointCloud(uri)
     }
 
     private val capturePermission = registerForActivityResult(
@@ -118,8 +128,8 @@ class MainActivity : ComponentActivity() {
         fun label(text: String, size: Float, color: Int = 0xffedf3f8.toInt()) =
             TextView(this).apply { this.text = text; textSize = size; setTextColor(color) }
         root.addView(label("ULTRON", 26f, 0xfff43c4f.toInt()))
-        root.addView(label("DJI FLY · SICHERER BILDSCHIRM-RELAY", 12f, 0xffa9b5c1.toInt()))
-        root.addView(label("Verbinde PC und Handy mit demselben privaten WLAN und scanne den QR-Code am PC.", 14f).apply {
+        root.addView(label("DJI NEO · 3D DIREKT AUF DEM HANDY", 12f, 0xffa9b5c1.toInt()))
+        root.addView(label("Videos werden offline auf dem Handy in eine 3D-Punktwolke umgerechnet. PC-Kopplung ist nur für Live-Bild, Mikrofon oder Dateiübertragung nötig.", 14f).apply {
             setPadding(0, 24, 0, 12)
         })
         serverField = EditText(this).apply {
@@ -165,13 +175,23 @@ class MainActivity : ComponentActivity() {
             }
         }
         root.addView(micButton)
+        localVideoButton = Button(this).apply {
+            text = "DJI-Fly-Video auf Handy in 3D umwandeln"
+            setOnClickListener { localVideoPicker.launch(arrayOf("video/mp4", "video/quicktime")) }
+        }
+        root.addView(localVideoButton)
+        openModelButton = Button(this).apply {
+            text = "Gespeicherte 3D-Punktwolke öffnen (.PLY)"
+            setOnClickListener { modelPicker.launch(arrayOf("application/vnd.ply", "application/octet-stream", "*/*")) }
+        }
+        root.addView(openModelButton)
         videoButton = Button(this).apply {
-            text = "Neo-Video für 3D an ULTRON senden"
+            text = "Optional: Video an verbundenen PC senden"
             isEnabled = false
             setOnClickListener { videoPicker.launch(arrayOf("video/mp4", "video/quicktime")) }
         }
         root.addView(videoButton)
-        root.addView(label("Nach dem Flug: Video in DJI Fly aufs Handy laden, hier auswählen und an den PC senden. Die 3D-Rekonstruktion läuft lokal am PC.", 12f, 0xffa9b5c1.toInt()).apply { setPadding(0, 6, 0, 4) })
+        root.addView(label("Das erzeugte PLY-Modell liegt danach in Downloads/ULTRON und lässt sich am Handy drehen oder auf den PC kopieren. Gute Ergebnisse brauchen langsame Bewegungen, viel Überlappung und sichtbare Details.", 12f, 0xffa9b5c1.toInt()).apply { setPadding(0, 6, 0, 4) })
         root.addView(Button(this).apply {
             text = "Stream stoppen"
             setOnClickListener {
@@ -193,7 +213,7 @@ class MainActivity : ComponentActivity() {
     private fun isAllowedServerUrl(rawUrl: String): Boolean {
         val uri = try { URI(rawUrl) } catch (_: Exception) { return false }
         val host = uri.host ?: return false
-        if (uri.scheme.equals("https", ignoreCase = true)) return host.lowercase().endsWith(".ts.net")
+        if (uri.scheme.equals("https", ignoreCase = true)) return true
         if (!uri.scheme.equals("http", ignoreCase = true)) return false
         val octets = host.split(".").map { it.toIntOrNull() ?: return false }
         if (octets.size != 4 || octets.any { it !in 0..255 }) return false
@@ -206,7 +226,7 @@ class MainActivity : ComponentActivity() {
         val url = serverField.text.toString().trim().trimEnd('/')
         val pin = pinField.text.toString().trim()
         if (!isAllowedServerUrl(url) || pin.length != 6) {
-            status.text = "Bitte den QR-Code scannen oder eine private WLAN-Adresse bzw. Tailscale-HTTPS-Adresse (*.ts.net) und den sechsstelligen Code eingeben."
+            status.text = "Bitte den QR-Code scannen oder eine private WLAN-/HTTPS-Adresse und den sechsstelligen Code eingeben."
             return
         }
         pairButton.isEnabled = false
@@ -289,6 +309,38 @@ class MainActivity : ComponentActivity() {
                 connection?.disconnect()
             }
         }
+    }
+
+    private fun buildLocalModel(uri: Uri) {
+        localVideoButton.isEnabled = false
+        openModelButton.isEnabled = false
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        status.text = "3D-Verarbeitung startet lokal auf dem Handy …"
+        io.execute {
+            try {
+                val output = LocalReconstruction.build(this, uri) { message ->
+                    runOnUiThread { status.text = message }
+                }
+                runOnUiThread {
+                    status.text = "Fertig: ${output.pointCount} Punkte in Downloads/ULTRON gespeichert."
+                    openPointCloud(output.uri)
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    status.text = "3D-Erstellung fehlgeschlagen: ${error.message ?: "Video prüfen"}"
+                }
+            } finally {
+                runOnUiThread {
+                    window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    localVideoButton.isEnabled = true
+                    openModelButton.isEnabled = true
+                }
+            }
+        }
+    }
+
+    private fun openPointCloud(uri: Uri) {
+        startActivity(Intent(this, PointCloudActivity::class.java).putExtra(PointCloudActivity.EXTRA_MODEL_URI, uri.toString()))
     }
 
     private fun monitorReconstruction(id: String, serverUrl: String, authToken: String) {
