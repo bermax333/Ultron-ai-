@@ -17,7 +17,7 @@ The relay does not control the aircraft. Flight control stays with the DJI FPV R
 
 ## Start the PC relay
 
-Requires Node.js 20 or later.
+Requires Node.js 20 or later, FFmpeg, and a current COLMAP command-line installation (`colmap`).
 
 ```sh
 cd pc-relay
@@ -52,7 +52,7 @@ See [DJI Goggles N3 support](https://www.dji.com/support/product/goggles-n3) and
 
 ## Project layout
 
-- `pc-relay/`: local Node.js receiver, pairing code, and PC live-view page
+- `pc-relay/`: local Node.js receiver, pairing code, live-view page, and video-to-3D pipeline
 - `android-relay/`: Android pairing app and user-approved screen capture service
 - `.github/workflows/build-relay-apk.yml`: manual debug APK build
 
