@@ -41,5 +41,5 @@ async function refresh(){
   }catch(_){$('pairedText').textContent='Relay-Server nicht erreichbar';}
 }
 $('rotate').onclick=async()=>{await fetch('/api/rotate-code',{method:'POST'});refresh()};
-refresh();setInterval(refresh,700);
+refresh();setInterval(refresh,200);
 </script></body></html>
