@@ -18,6 +18,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts\nimport com.journeyapps.barcodescanner.ScanContract\nimport com.journeyapps.barcodescanner.ScanOptions
 import org.json.JSONObject
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
@@ -42,7 +43,7 @@ class MainActivity : ComponentActivity() {
                 val payload = JSONObject(contents)
                 val url = payload.optString("url").trim().trimEnd('/')
                 val pin = payload.optString("pin").trim()
-                if (payload.optString("type") != "ultron-pair-v1" || !url.startsWith("https://") || pin.length != 6) {
+                if (payload.optString("type") != "ultron-pair-v1" || !isAllowedServerUrl(url) || pin.length != 6) {
                     status.text = "Das ist kein gültiger ULTRON-Kopplungs-QR-Code."
                 } else {
                     serverField.setText(url)
@@ -97,7 +98,7 @@ class MainActivity : ComponentActivity() {
             setPadding(0, 24, 0, 12)
         })
         serverField = EditText(this).apply {
-            hint = "https://ultron-pc.dein-tailnet.ts.net"
+            hint = "http://192.168.1.23:8787 oder https://…ts.net"
             setSingleLine(true)
             setTextColor(0xffedf3f8.toInt())
             setHintTextColor(0xff8895a2.toInt())
@@ -141,10 +142,22 @@ class MainActivity : ComponentActivity() {
         setContentView(scroll)
     }
 
+    private fun isAllowedServerUrl(rawUrl: String): Boolean {
+        val uri = try { URI(rawUrl) } catch (_: Exception) { return false }
+        val host = uri.host ?: return false
+        if (uri.scheme.equals("https", ignoreCase = true)) return true
+        if (!uri.scheme.equals("http", ignoreCase = true)) return false
+        val octets = host.split(".").map { it.toIntOrNull() ?: return false }
+        if (octets.size != 4 || octets.any { it !in 0..255 }) return false
+        return octets[0] == 10 ||
+            (octets[0] == 192 && octets[1] == 168) ||
+            (octets[0] == 172 && octets[1] in 16..31)
+    }
+
     private fun pair() {
         val url = serverField.text.toString().trim().trimEnd('/')
         val pin = pinField.text.toString().trim()
-        if (!url.startsWith("https://") || pin.length != 6) {
+        if (!isAllowedServerUrl(url) || pin.length != 6) {
             status.text = "Bitte die HTTPS-Adresse von Tailscale Serve und den sechsstelligen PC-Code eingeben."
             return
         }
