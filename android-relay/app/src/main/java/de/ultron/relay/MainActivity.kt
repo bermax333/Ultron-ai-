@@ -132,6 +132,24 @@ class MainActivity : ComponentActivity() {
         root.addView(label("Videos werden offline auf dem Handy in eine 3D-Punktwolke umgerechnet. PC-Kopplung ist nur für Live-Bild, Mikrofon oder Dateiübertragung nötig.", 14f).apply {
             setPadding(0, 24, 0, 12)
         })
+        localVideoButton = Button(this).apply {
+            text = "DJI-Fly-Video auf Handy in 3D umwandeln"
+            setOnClickListener { localVideoPicker.launch(arrayOf("video/mp4", "video/quicktime")) }
+        }
+        root.addView(localVideoButton)
+        openModelButton = Button(this).apply {
+            text = "Gespeicherte 3D-Punktwolke öffnen (.PLY)"
+            setOnClickListener { modelPicker.launch(arrayOf("application/vnd.ply", "application/octet-stream", "*/*")) }
+        }
+        root.addView(openModelButton)
+        root.addView(label("Ergebnisse liegen in Downloads/ULTRON. Mit einem Finger drehen, mit zwei Fingern zoomen; PLY per USB auf den PC kopieren.", 12f, 0xffa9b5c1.toInt()).apply {
+            setPadding(0, 6, 0, 12)
+        })
+        status = label("Bereit. Wähle ein DJI-Fly-Video für die lokale 3D-Berechnung.", 13f, 0xffa9b5c1.toInt()).apply {
+            setPadding(0, 4, 0, 12)
+        }
+        root.addView(status)
+        root.addView(label("OPTIONAL · PC-RELAY FÜR LIVE-BILD UND MIKROFON", 12f, 0xffa9b5c1.toInt()).apply { setPadding(0, 8, 0, 0) })
         serverField = EditText(this).apply {
             hint = "http://192.168.1.23:8787 oder https://…ts.net"
             setSingleLine(true)
@@ -175,16 +193,6 @@ class MainActivity : ComponentActivity() {
             }
         }
         root.addView(micButton)
-        localVideoButton = Button(this).apply {
-            text = "DJI-Fly-Video auf Handy in 3D umwandeln"
-            setOnClickListener { localVideoPicker.launch(arrayOf("video/mp4", "video/quicktime")) }
-        }
-        root.addView(localVideoButton)
-        openModelButton = Button(this).apply {
-            text = "Gespeicherte 3D-Punktwolke öffnen (.PLY)"
-            setOnClickListener { modelPicker.launch(arrayOf("application/vnd.ply", "application/octet-stream", "*/*")) }
-        }
-        root.addView(openModelButton)
         videoButton = Button(this).apply {
             text = "Optional: Video an verbundenen PC senden"
             isEnabled = false
@@ -202,10 +210,6 @@ class MainActivity : ComponentActivity() {
                 status.text = "Bild- und Mikrofonstream gestoppt."
             }
         })
-        status = label("Noch nicht gekoppelt. Das Bild wird erst nach deiner Android-Freigabe übertragen.", 13f, 0xffa9b5c1.toInt()).apply {
-            setPadding(0, 16, 0, 0)
-        }
-        root.addView(status)
         val scroll = ScrollView(this).apply { addView(root) }
         setContentView(scroll)
     }
