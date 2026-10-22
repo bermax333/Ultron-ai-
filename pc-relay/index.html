@@ -8,7 +8,7 @@
 :root{color-scheme:dark;--bg:#080b10;--panel:#111923;--line:#293746;--red:#f43c4f;--muted:#a9b5c1}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#18202b,var(--bg) 55%);color:#edf3f8;font:15px system-ui,Arial;min-height:100vh}
 main{width:min(880px,100% - 28px);margin:28px auto}header{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{border:2px solid var(--red);border-radius:50%;color:var(--red);font-weight:900;font-size:24px;padding:3px 9px}.brand{font-size:20px;letter-spacing:3px;font-weight:900;color:var(--red)}.brand small{display:block;font-size:10px;letter-spacing:1px;color:var(--muted)}
-.grid{display:grid;grid-template-columns:1fr 1.35fr;gap:14px}.card{background:linear-gradient(145deg,#121a24,#0b1016);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 16px 42px #0005}h2{font-size:13px;letter-spacing:1px;color:var(--red);margin:0 0 12px}.pin{font-size:38px;letter-spacing:10px;font-weight:850;color:#fff;padding:16px 0}.muted{color:var(--muted);line-height:1.5;font-size:13px}.state{display:flex;align-items:center;gap:9px;margin-top:14px}.dot{width:10px;height:10px;border-radius:50%;background:#718091}.dot.on{background:#4de09b;box-shadow:0 0 12px #4de09b99}button{font:inherit;color:white;background:#8e1523;border:1px solid var(--red);border-radius:9px;padding:10px 13px;cursor:pointer;margin-top:14px}button:hover{background:#b01a2b}video, .frame{width:100%;aspect-ratio:16/9;background:#05070a;border:1px solid var(--line);border-radius:11px;object-fit:contain}#frame{display:none}#notice{margin-top:9px;color:var(--muted);font-size:12px}.instructions{margin-top:14px;padding:12px;border-radius:10px;background:#0a0f15;color:var(--muted);font-size:12px;line-height:1.6}.instructions b{color:#eff4f8}
+.pair-tools{display:grid;gap:7px;margin:12px 0}.pair-tools label{font-size:12px;color:var(--muted)}.pair-tools input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#080b10;color:#edf3f8}.pair-tools button{justify-self:start;margin:2px 0}.pair-tools canvas{width:220px;height:220px;max-width:100%;padding:8px;background:white;border-radius:8px;display:none}.grid{display:grid;grid-template-columns:1fr 1.35fr;gap:14px}.card{background:linear-gradient(145deg,#121a24,#0b1016);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 16px 42px #0005}h2{font-size:13px;letter-spacing:1px;color:var(--red);margin:0 0 12px}.pin{font-size:38px;letter-spacing:10px;font-weight:850;color:#fff;padding:16px 0}.muted{color:var(--muted);line-height:1.5;font-size:13px}.state{display:flex;align-items:center;gap:9px;margin-top:14px}.dot{width:10px;height:10px;border-radius:50%;background:#718091}.dot.on{background:#4de09b;box-shadow:0 0 12px #4de09b99}button{font:inherit;color:white;background:#8e1523;border:1px solid var(--red);border-radius:9px;padding:10px 13px;cursor:pointer;margin-top:14px}button:hover{background:#b01a2b}video, .frame{width:100%;aspect-ratio:16/9;background:#05070a;border:1px solid var(--line);border-radius:11px;object-fit:contain}#frame{display:none}#notice{margin-top:9px;color:var(--muted);font-size:12px}.instructions{margin-top:14px;padding:12px;border-radius:10px;background:#0a0f15;color:var(--muted);font-size:12px;line-height:1.6}.instructions b{color:#eff4f8}
 @media(max-width:680px){main{margin:16px auto}.grid{grid-template-columns:1fr}.pin{font-size:34px}}
 button:disabled{opacity:.55;cursor:wait}#modelViewer{display:none;height:430px;background:#060a0f;border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;margin:14px 0}#modelViewer canvas{width:100%;height:100%;display:block}.viewer-tools{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:8px}.viewer-tools button{margin:0;padding:7px 10px;font-size:12px;background:#111923dd}.viewer-hint{position:absolute;right:12px;bottom:10px;color:#a9b5c1;font-size:11px;background:#080b10aa;padding:5px 8px;border-radius:6px}input[type=file]{width:100%;margin:10px 0;color:var(--muted)}.reconstruct{margin-top:14px}.model-link{display:none;color:#6fe7aa;font-weight:700}.progress{height:7px;background:#202a35;border-radius:8px;margin-top:12px;overflow:hidden}.progress i{display:block;width:0;height:100%;background:#f43c4f;transition:width .4s}
 </style>
@@ -16,18 +16,33 @@ button:disabled{opacity:.55;cursor:wait}#modelViewer{display:none;height:430px;b
 <body><main>
 <header><div class="logo">U</div><div class="brand">ULTRON<small>NEO VIDEO RELAY · LOKAL AUF DIESEM PC</small></div></header>
 <div class="grid">
-<section class="card"><h2>HANDY KOPPELN</h2><div class="muted">Gib diesen einmaligen Code in der ULTRON Relay-App auf deinem Galaxy A55 ein. Er läuft nach fünf Minuten ab.</div><div id="pin" class="pin">······</div><div class="state"><span id="pairedDot" class="dot"></span><span id="pairedText">Noch kein Handy verbunden</span></div><button id="rotate">Neuen Code anzeigen</button>
-<div class="instructions"><b>Für unterwegs:</b> Installiere und verbinde Tailscale auf PC und Handy. Öffne am PC ein Terminal und starte <code>tailscale serve 8787</code>. Gib die angezeigte HTTPS-Adresse in der Handy-App ein. ULTRON nutzt Serve innerhalb deines privaten Tailnets.</div>
+<section class="card"><h2>HANDY KOPPELN</h2><div class="muted">URL am PC eintragen, QR-Code in der ULTRON-App scannen und koppeln. Der sechsstellige Code ist fünf Minuten gültig.</div>
+<div class="pair-tools"><label for="serveUrl">Tailscale-Serve-URL</label><input id="serveUrl" type="url" placeholder="https://ultron-pc.dein-tailnet.ts.net" autocomplete="url"><button id="updateQr">QR-Code erzeugen</button><canvas id="pairQr" width="220" height="220" aria-label="ULTRON-Kopplungs-QR-Code"></canvas><div id="qrMessage" class="muted">Trage zuerst die HTTPS-Adresse von Tailscale Serve ein.</div></div>
+<div class="muted">Falls Scannen nicht klappt, Code manuell eingeben:</div><div id="pin" class="pin">······</div><div class="state"><span id="pairedDot" class="dot"></span><span id="pairedText">Noch kein Handy verbunden</span></div><button id="rotate">Neuen Code anzeigen</button>
+<div class="instructions"><b>Für unterwegs:</b> Tailscale muss auf PC und Handy verbunden sein. Am PC <code>tailscale serve 8787</code> starten, die HTTPS-Adresse hier eintragen und in der App den QR-Code scannen. Der QR-Code enthält die Adresse und den zeitlich begrenzten Kopplungscode.</div>
 </section>
 <section class="card"><h2>DJI FLY LIVEBILD</h2><img id="frame" class="frame" alt="Livebild der DJI Fly App"><div id="placeholder" class="frame" style="display:grid;place-items:center;color:#718091">Warte auf den ersten Videoframe …</div><div id="notice">Die App überträgt den Bildschirm erst nach deiner Android-Freigabe.</div></section>
 </div>
 <section class="card reconstruct"><h2>LOKALE 3D-REKONSTRUKTION</h2><p class="muted">Wähle hier eine Datei oder sende sie aus der gekoppelten Android-App. ULTRON extrahiert lokal überlappende Frames und COLMAP erstellt daraus ein Mesh. Die Datei bleibt auf diesem PC.</p><input id="videoFile" type="file" accept="video/mp4,video/quicktime,.mp4,.mov"><button id="make3d">Video hochladen und 3D-Modell erstellen</button><div class="progress"><i id="progressBar"></i></div><div id="modelStatus" class="muted" style="margin-top:10px">Benötigt FFmpeg und COLMAP auf dem PC.</div><div id="modelViewer"><div class="viewer-tools"><button id="spinToggle">Drehung starten</button><button id="viewReset">Ansicht zurücksetzen</button></div><div class="viewer-hint">Ziehen: drehen · Mausrad: zoomen · Touch: bewegen/zoomen</div></div><p><a id="modelLink" class="model-link">3D-Mesh (PLY) herunterladen</a></p><div class="instructions"><b>Für ein gutes Modell:</b> ruhig und langsam fliegen, das Motiv aus mehreren Seiten mit viel Überlappung filmen, ausreichend Licht und sichtbare Oberflächentextur. Gleichförmige Flächen, schnelle Schwenks und bewegte Motive verschlechtern die Rekonstruktion. Die 3D-Verarbeitung startet nach dem Flug aus der Originaldatei, nicht aus dem komprimierten Livebild.</div></section></main>
 <script>
 const $=id=>document.getElementById(id);
+async function drawPairQr(){
+  const url=$('serveUrl').value.trim().replace(/\\/$/,'');
+  const canvas=$('pairQr'), note=$('qrMessage');
+  if(!url.startsWith('https://')){canvas.style.display='none';note.textContent='Bitte eine HTTPS-Adresse von Tailscale Serve eingeben.';return}
+  try{
+    const pair=await fetch('/api/pairing',{cache:'no-store'}).then(r=>r.json());
+    if(!pair.pin){canvas.style.display='none';note.textContent='Erzeuge am PC zuerst einen neuen Kopplungscode.';return}
+    const payload=JSON.stringify({type:'ultron-pair-v1',url,pin:pair.pin});
+    if(!window.QRCode?.toCanvas)throw new Error('QR-Bibliothek nicht geladen. Prüfe die Internetverbindung am PC.');
+    await QRCode.toCanvas(canvas,payload,{width:220,margin:2,errorCorrectionLevel:'M'});
+    canvas.style.display='block';note.textContent='Mit „QR scannen“ in der Handy-App verbinden.';
+  }catch(error){canvas.style.display='none';note.textContent=error.message||'QR-Code konnte nicht erstellt werden.'}
+}
 async function refresh(){
   try{
     const [pair,status]=await Promise.all([fetch('/api/pairing',{cache:'no-store'}).then(r=>r.json()),fetch('/api/status',{cache:'no-store'}).then(r=>r.json())]);
-    $('pin').textContent=pair.pin||'······';
+    $('pin').textContent=pair.pin||'······';\n    if($('serveUrl').value.trim())drawPairQr();
     $('pairedDot').classList.toggle('on',status.paired);
     $('pairedText').textContent=status.paired?'Handy gekoppelt · '+(status.frameNumber?'Bild kommt an':'warte auf Videobild'):pair.locked?'Zu viele Versuche · am PC neuen Code erzeugen':'Noch kein Handy verbunden';
     if(status.frameNumber){
@@ -42,7 +57,7 @@ async function refresh(){
     }
   }catch(_){$('pairedText').textContent='Relay-Server nicht erreichbar';}
 }
-$('rotate').onclick=async()=>{await fetch('/api/rotate-code',{method:'POST'});refresh()};
+$('rotate').onclick=async()=>{await fetch('/api/rotate-code',{method:'POST'});refresh()};\n$('updateQr').onclick=drawPairQr;
 let activeJob=null;
 $('make3d').onclick=async()=>{
   const file=$('videoFile').files[0];
