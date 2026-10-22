@@ -68,6 +68,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { pin: pairedToken || pinLockedUntil ? '' : pairing.pin, expiresAt: pairing.expiresAt, locked: !!pinLockedUntil, paired: !!pairedToken, frameNumber });
     }
     if (req.method === 'POST' && url.pathname === '/api/pair') {
+      if (!isTailscaleRequest(req)) return json(res, 403, { error: 'Use the private Tailscale Serve URL to pair.' });
       if (pairedToken) return json(res, 409, { error: 'Ein Handy ist bereits gekoppelt. Trenne es zuerst am PC.' });
       if (pinAttempts >= 8) return json(res, 429, { error: 'Zu viele Versuche. Bitte am PC einen neuen Code erzeugen.' });
       const body = JSON.parse((await readBody(req)).toString('utf8') || '{}');
@@ -86,6 +87,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true });
     }
     if (req.method === 'POST' && url.pathname === '/api/frame') {
+      if (!isTailscaleRequest(req)) return json(res, 403, { error: 'Use the private Tailscale Serve URL to stream.' });
       if (!authorized(req)) return json(res, 401, { error: 'Not paired.' });
       if (!req.headers['content-type']?.startsWith('image/jpeg')) return json(res, 415, { error: 'Send a JPEG frame.' });
       if (Date.now() - lastFrameAt < FRAME_INTERVAL_MS) { req.resume(); return json(res, 429, { error: 'Frame rate limited.' }); }
