@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
@@ -27,8 +28,13 @@ class MainActivity : ComponentActivity() {
     private lateinit var status: TextView
     private lateinit var pairButton: Button
     private lateinit var startButton: Button
+    private lateinit var videoButton: Button
     private var token: String? = null
     private var baseUrl: String = ""
+
+    private val videoPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) uploadVideo(uri)
+    }
 
     private val capturePermission = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -86,6 +92,13 @@ class MainActivity : ComponentActivity() {
         root.addView(pairButton)
         startButton = Button(this).apply { text = "DJI-Fly-Bild freigeben"; isEnabled = false; setOnClickListener { requestCapture() } }
         root.addView(startButton)
+        videoButton = Button(this).apply {
+            text = "Neo-Video für 3D an ULTRON senden"
+            isEnabled = false
+            setOnClickListener { videoPicker.launch(arrayOf("video/mp4", "video/quicktime")) }
+        }
+        root.addView(videoButton)
+        root.addView(label("Nach dem Flug: Video in DJI Fly aufs Handy laden, hier auswählen und an den PC senden. Die 3D-Rekonstruktion läuft lokal am PC.", 12f, 0xffa9b5c1.toInt()).apply { setPadding(0, 6, 0, 4) })
         root.addView(Button(this).apply {
             text = "Stream stoppen"
             setOnClickListener { stopService(Intent(this@MainActivity, ScreenRelayService::class.java)); status.text = "Stream gestoppt." }
@@ -125,6 +138,7 @@ class MainActivity : ComponentActivity() {
                         token = newToken
                         baseUrl = url
                         startButton.isEnabled = true
+                        videoButton.isEnabled = true
                         pinField.text.clear()
                         status.text = "Gekoppelt. Tippe auf „DJI-Fly-Bild freigeben“ und bestätige Androids Bildschirmfreigabe."
                     } else status.text = json.optString("error", "Kopplung fehlgeschlagen.")
@@ -135,6 +149,47 @@ class MainActivity : ComponentActivity() {
                     status.text = "Verbindung fehlgeschlagen: ${error.message ?: "Server nicht erreichbar"}"
                     pairButton.isEnabled = true
                 }
+            }
+        }
+    }
+
+    private fun uploadVideo(uri: Uri) {
+        val currentToken = token
+        if (currentToken == null || baseUrl.isBlank()) { status.text = "Kopple zuerst mit ULTRON."; return }
+        videoButton.isEnabled = false
+        status.text = "Neo-Video wird sicher zum PC übertragen …"
+        io.execute {
+            var connection: HttpURLConnection? = null
+            try {
+                val mime = contentResolver.getType(uri) ?: "video/mp4"
+                val input = contentResolver.openInputStream(uri) ?: throw IllegalStateException("Videodatei kann nicht geöffnet werden.")
+                connection = (URL(baseUrl + "/api/video-phone").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 15_000
+                    readTimeout = 60_000
+                    doOutput = true
+                    setChunkedStreamingMode(256 * 1024)
+                    setRequestProperty("Content-Type", mime)
+                    setRequestProperty("Authorization", "Bearer " + currentToken)
+                }
+                input.use { source ->
+                    connection.outputStream.use { output -> source.copyTo(output, 256 * 1024) }
+                }
+                val code = connection.responseCode
+                val response = if (code in 200..299) connection.inputStream else connection.errorStream
+                val json = JSONObject(response.bufferedReader().use { it.readText() })
+                runOnUiThread {
+                    if (code in 200..299) status.text = "Video am PC angekommen. ULTRON erstellt jetzt das 3D-Modell."
+                    else status.text = json.optString("error", "Video-Upload fehlgeschlagen.")
+                    videoButton.isEnabled = token != null
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    status.text = "Video-Upload fehlgeschlagen: " + (error.message ?: "Verbindung prüfen")
+                    videoButton.isEnabled = token != null
+                }
+            } finally {
+                connection?.disconnect()
             }
         }
     }
