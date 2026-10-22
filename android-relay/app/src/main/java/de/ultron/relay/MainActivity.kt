@@ -15,7 +15,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts\nimport com.journeyapps.barcodescanner.ScanContract\nimport com.journeyapps.barcodescanner.ScanOptions
+import androidx.activity.result.contract.ActivityResultContracts
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URI
@@ -28,7 +30,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var serverField: EditText
     private lateinit var pinField: EditText
     private lateinit var status: TextView
-    private lateinit var pairButton: Button\n    private lateinit var scanButton: Button
+    private lateinit var pairButton: Button
+    private lateinit var scanButton: Button
     private lateinit var startButton: Button
     private lateinit var videoButton: Button
     private var token: String? = null
@@ -94,7 +97,7 @@ class MainActivity : ComponentActivity() {
             TextView(this).apply { this.text = text; textSize = size; setTextColor(color) }
         root.addView(label("ULTRON", 26f, 0xfff43c4f.toInt()))
         root.addView(label("DJI FLY · SICHERER BILDSCHIRM-RELAY", 12f, 0xffa9b5c1.toInt()))
-        root.addView(label("1 · Tailscale auf Handy und PC verbinden.  2 · HTTPS-Adresse von Tailscale Serve eingeben.", 14f).apply {
+        root.addView(label("Verbinde PC und Handy mit demselben privaten WLAN und scanne den QR-Code am PC.", 14f).apply {
             setPadding(0, 24, 0, 12)
         })
         serverField = EditText(this).apply {
@@ -158,7 +161,7 @@ class MainActivity : ComponentActivity() {
         val url = serverField.text.toString().trim().trimEnd('/')
         val pin = pinField.text.toString().trim()
         if (!isAllowedServerUrl(url) || pin.length != 6) {
-            status.text = "Bitte die HTTPS-Adresse von Tailscale Serve und den sechsstelligen PC-Code eingeben."
+            status.text = "Bitte den QR-Code scannen oder eine private WLAN-/HTTPS-Adresse und den sechsstelligen Code eingeben."
             return
         }
         pairButton.isEnabled = false
