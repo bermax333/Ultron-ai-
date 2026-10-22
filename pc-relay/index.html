@@ -10,6 +10,7 @@
 main{width:min(880px,100% - 28px);margin:28px auto}header{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{border:2px solid var(--red);border-radius:50%;color:var(--red);font-weight:900;font-size:24px;padding:3px 9px}.brand{font-size:20px;letter-spacing:3px;font-weight:900;color:var(--red)}.brand small{display:block;font-size:10px;letter-spacing:1px;color:var(--muted)}
 .grid{display:grid;grid-template-columns:1fr 1.35fr;gap:14px}.card{background:linear-gradient(145deg,#121a24,#0b1016);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 16px 42px #0005}h2{font-size:13px;letter-spacing:1px;color:var(--red);margin:0 0 12px}.pin{font-size:38px;letter-spacing:10px;font-weight:850;color:#fff;padding:16px 0}.muted{color:var(--muted);line-height:1.5;font-size:13px}.state{display:flex;align-items:center;gap:9px;margin-top:14px}.dot{width:10px;height:10px;border-radius:50%;background:#718091}.dot.on{background:#4de09b;box-shadow:0 0 12px #4de09b99}button{font:inherit;color:white;background:#8e1523;border:1px solid var(--red);border-radius:9px;padding:10px 13px;cursor:pointer;margin-top:14px}button:hover{background:#b01a2b}video, .frame{width:100%;aspect-ratio:16/9;background:#05070a;border:1px solid var(--line);border-radius:11px;object-fit:contain}#frame{display:none}#notice{margin-top:9px;color:var(--muted);font-size:12px}.instructions{margin-top:14px;padding:12px;border-radius:10px;background:#0a0f15;color:var(--muted);font-size:12px;line-height:1.6}.instructions b{color:#eff4f8}
 @media(max-width:680px){main{margin:16px auto}.grid{grid-template-columns:1fr}.pin{font-size:34px}}
+button:disabled{opacity:.55;cursor:wait}input[type=file]{width:100%;margin:10px 0;color:var(--muted)}.reconstruct{margin-top:14px}.model-link{display:none;color:#6fe7aa;font-weight:700}.progress{height:7px;background:#202a35;border-radius:8px;margin-top:12px;overflow:hidden}.progress i{display:block;width:0;height:100%;background:#f43c4f;transition:width .4s}
 </style>
 </head>
 <body><main>
@@ -19,7 +20,8 @@ main{width:min(880px,100% - 28px);margin:28px auto}header{display:flex;align-ite
 <div class="instructions"><b>Für unterwegs:</b> Installiere und verbinde Tailscale auf PC und Handy. Öffne am PC ein Terminal und starte <code>tailscale serve 8787</code>. Gib die angezeigte HTTPS-Adresse in der Handy-App ein. ULTRON nutzt Serve innerhalb deines privaten Tailnets.</div>
 </section>
 <section class="card"><h2>DJI FLY LIVEBILD</h2><img id="frame" class="frame" alt="Livebild der DJI Fly App"><div id="placeholder" class="frame" style="display:grid;place-items:center;color:#718091">Warte auf den ersten Videoframe …</div><div id="notice">Die App überträgt den Bildschirm erst nach deiner Android-Freigabe.</div></section>
-</div></main>
+</div>
+<section class="card reconstruct"><h2>LOKALE 3D-REKONSTRUKTION</h2><p class="muted">Wähle die Originalaufnahme vom DJI Neo. ULTRON extrahiert lokal überlappende Frames und COLMAP erstellt daraus ein Mesh. Die Datei bleibt auf diesem PC.</p><input id="videoFile" type="file" accept="video/mp4,video/quicktime,.mp4,.mov"><button id="make3d">Video hochladen und 3D-Modell erstellen</button><div class="progress"><i id="progressBar"></i></div><div id="modelStatus" class="muted" style="margin-top:10px">Benötigt FFmpeg und COLMAP auf dem PC.</div><p><a id="modelLink" class="model-link">3D-Mesh (PLY) herunterladen</a></p><div class="instructions"><b>Für ein gutes Modell:</b> ruhig und langsam fliegen, das Motiv aus mehreren Seiten mit viel Überlappung filmen, ausreichend Licht und sichtbare Oberflächentextur. Gleichförmige Flächen, schnelle Schwenks und bewegte Motive verschlechtern die Rekonstruktion. Die 3D-Verarbeitung startet nach dem Flug aus der Originaldatei, nicht aus dem komprimierten Livebild.</div></section></main>
 <script>
 const $=id=>document.getElementById(id);
 async function refresh(){
@@ -41,5 +43,30 @@ async function refresh(){
   }catch(_){$('pairedText').textContent='Relay-Server nicht erreichbar';}
 }
 $('rotate').onclick=async()=>{await fetch('/api/rotate-code',{method:'POST'});refresh()};
+let activeJob=null;
+$('make3d').onclick=async()=>{
+  const file=$('videoFile').files[0];
+  if(!file){$('modelStatus').textContent='Bitte zuerst ein MP4- oder MOV-Video auswählen.';return}
+  $('make3d').disabled=true;$('modelLink').style.display='none';$('progressBar').style.width='5%';$('modelStatus').textContent='Video wird lokal übertragen …';
+  try{
+    const uploaded=await fetch('/api/video',{method:'POST',headers:{'Content-Type':file.type||'video/mp4'},body:file});
+    const video=await uploaded.json();if(!uploaded.ok)throw new Error(video.error||'Upload fehlgeschlagen');
+    activeJob=video.id;
+    const started=await fetch('/api/reconstruct',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:activeJob})});
+    const begin=await started.json();if(!started.ok)throw new Error(begin.error||'Start fehlgeschlagen');
+    pollReconstruction();
+  }catch(error){$('modelStatus').textContent=error.message;$('make3d').disabled=false;$('progressBar').style.width='0%'}
+};
+async function pollReconstruction(){
+  if(!activeJob)return;
+  try{
+    const response=await fetch('/api/reconstruct/'+activeJob,{cache:'no-store'}),job=await response.json();
+    $('modelStatus').textContent=job.message||job.state;
+    $('progressBar').style.width=job.state==='done'?'100%':job.state==='reconstructing'?'65%':job.state==='frames'?'30%':'15%';
+    if(job.state==='done'){$('modelLink').href='/api/model/'+activeJob;$('modelLink').style.display='inline';$('make3d').disabled=false;return}
+    if(job.state==='error'){$('make3d').disabled=false;return}
+    setTimeout(pollReconstruction,2500);
+  }catch(error){$('modelStatus').textContent='Statusabfrage fehlgeschlagen: '+error.message;$('make3d').disabled=false}
+}
 refresh();setInterval(refresh,200);
 </script></body></html>
