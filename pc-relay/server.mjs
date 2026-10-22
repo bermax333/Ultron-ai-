@@ -6,16 +6,18 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.ULTRON_PORT || 8787);
-const HOST = process.env.ULTRON_HOST || '127.0.0.1';
+const HOST = '127.0.0.1';
 const MAX_FRAME_BYTES = 900_000;
 const FRAME_INTERVAL_MS = 200;
 let pairing = newPairing();
+let pinAttempts = 0;
 let pairedToken = null;
 let latestFrame = null;
 let lastFrameAt = 0;
 let frameNumber = 0;
 
 function newPairing() {
+  pinAttempts = 0;
   return { pin: crypto.randomInt(100000, 1000000).toString(), expiresAt: Date.now() + 5 * 60_000 };
 }
 function json(res, status, value) {
@@ -36,9 +38,13 @@ function readBody(req, limit = 16_384) {
     req.on('error', reject);
   });
 }
+function isTailscaleRequest(req) {
+  return typeof req.headers['tailscale-user-login'] === 'string';
+}
 function isLocal(req) {
   const ip = req.socket.remoteAddress || '';
-  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+  const loopback = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+  return loopback && !isTailscaleRequest(req);
 }
 function authorized(req) {
   const supplied = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -55,15 +61,18 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/pairing') {
       if (!isLocal(req)) return json(res, 403, { error: 'Pair code is shown only on the PC.' });
-      if (Date.now() >= pairing.expiresAt) pairing = newPairing();
-      return json(res, 200, { pin: pairing.pin, expiresAt: pairing.expiresAt, paired: !!pairedToken, frameNumber });
+      if (!pairedToken && Date.now() >= pairing.expiresAt) pairing = newPairing();
+      return json(res, 200, { pin: pairedToken ? '' : pairing.pin, expiresAt: pairing.expiresAt, paired: !!pairedToken, frameNumber });
     }
     if (req.method === 'POST' && url.pathname === '/api/pair') {
+      if (pairedToken) return json(res, 409, { error: 'Ein Handy ist bereits gekoppelt. Trenne es zuerst am PC.' });
+      if (pinAttempts >= 8) return json(res, 429, { error: 'Zu viele Versuche. Bitte am PC einen neuen Code erzeugen.' });
       const body = JSON.parse((await readBody(req)).toString('utf8') || '{}');
       if (typeof body.pin !== 'string' || Date.now() >= pairing.expiresAt || body.pin !== pairing.pin) {
-        return json(res, 401, { error: 'Code falsch oder abgelaufen. Bitte den aktuellen Code am PC eingeben.' });
+        pinAttempts++;
+        if (pinAttempts >= 8) pairing = { pin: '', expiresAt: 0 };
+        return json(res, pinAttempts >= 8 ? 429 : 401, { error: pinAttempts >= 8 ? 'Code gesperrt. Erzeuge am PC einen neuen Code.' : 'Code falsch oder abgelaufen. Bitte den aktuellen Code am PC eingeben.' });
       }
-      if (pairedToken) return json(res, 409, { error: 'Ein Handy ist bereits gekoppelt. Trenne es zuerst am PC.' });
       pairedToken = crypto.randomBytes(32).toString('hex');
       pairing = { pin: '', expiresAt: 0 };
       return json(res, 200, { token: pairedToken, paired: true });
