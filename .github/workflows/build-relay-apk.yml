@@ -33,7 +33,7 @@ jobs:
         run: gradle -p android-relay assembleDebug
       - name: Package fresh PC and Android source
         run: |
-          zip -r ultron-neo-relay-source.zip README.md LICENSE start-ultron.sh pc-relay android-relay .github/workflows/build-relay-apk.yml
+          zip -r ultron-neo-relay-source.zip README.md LICENSE start-ultron.sh start-ultron-no-admin.sh pc-relay android-relay .github/workflows/build-relay-apk.yml
       - uses: actions/upload-artifact@v4
         with:
           name: ultron-relay-downloads
