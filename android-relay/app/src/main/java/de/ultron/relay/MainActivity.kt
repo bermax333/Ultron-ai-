@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -107,7 +108,8 @@ class MainActivity : ComponentActivity() {
             setPadding(0, 16, 0, 0)
         }
         root.addView(status)
-        setContentView(root)
+        val scroll = ScrollView(this).apply { addView(root) }
+        setContentView(scroll)
     }
 
     private fun pair() {
@@ -162,7 +164,6 @@ class MainActivity : ComponentActivity() {
             var connection: HttpURLConnection? = null
             try {
                 val mime = contentResolver.getType(uri) ?: "video/mp4"
-                val input = contentResolver.openInputStream(uri) ?: throw IllegalStateException("Videodatei kann nicht geöffnet werden.")
                 val uploadConnection = (URL(baseUrl + "/api/video-phone").openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 15_000
@@ -173,6 +174,7 @@ class MainActivity : ComponentActivity() {
                     setRequestProperty("Authorization", "Bearer " + currentToken)
                 }
                 connection = uploadConnection
+                val input = contentResolver.openInputStream(uri) ?: throw IllegalStateException("Videodatei kann nicht geöffnet werden.")
                 input.use { source ->
                     uploadConnection.outputStream.use { output -> source.copyTo(output, 256 * 1024) }
                 }
