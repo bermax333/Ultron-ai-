@@ -1,28 +1,59 @@
-# ULTRON AI
+# ULTRON Neo Relay
 
-An independent desktop-AI experiment inspired by fictional AI interfaces. This is a community project and is **not affiliated with, sponsored by, or endorsed by Marvel or Disney**.
+A fresh Linux PC and Android companion project for relaying the DJI Fly screen from a Galaxy phone to ULTRON on a home PC.
 
-## Status
+The PC receiver stays on loopback. Remote phone traffic is intended to reach it through **Tailscale Serve inside your private tailnet**. Do not expose the port with a router rule or Tailscale Funnel.
 
-This repository has been created, but the full application source bundle is not yet committed. The application depends on local runtime assets such as `preload.cjs`, `vendor/`, and `models/`; these need to be reviewed before publishing a complete runnable build.
+## How it works
 
-## Planned features
+1. Start the PC relay. Its local page shows a one-time six-digit pairing code.
+2. Connect the Linux PC and Android phone to the same Tailscale network.
+3. Run `tailscale serve 8787` on the PC and copy the private HTTPS URL it prints.
+4. Enter that URL and the PC's pairing code in the Android relay app.
+5. Connect the DJI Goggles N3 to the Galaxy phone with a USB-C data cable and open the DJI Fly live view.
+6. In ULTRON Relay, tap **DJI-Fly-Bild freigeben** and accept Android's screen-capture prompt. Switch back to DJI Fly. The PC page displays the incoming preview.
 
-- Electron desktop app for Linux
-- First-run language selection and a language selector in the interface
-- Web research, voice interaction, and hand-controlled interface elements
+The relay does not control the aircraft. Flight control stays with the DJI FPV Remote Controller 3 and goggles.
 
-## Privacy and safety before publishing
+## Start the PC relay
 
-- Never commit personal diagnostic logs, home-directory paths, browser profiles, passwords, tokens, API keys, or private model caches.
-- Review every asset and dependency for license and personal metadata.
-- Camera and microphone access should be requested only when the user starts those features.
-- Do not claim that this project is an official Marvel product. Marvel-related names and marks belong to their respective rights holders.
+Requires Node.js 20 or later.
 
-## Source bundle
+```sh
+cd pc-relay
+npm start
+```
 
-The prepared source bundle is available separately from the chat where it was prepared. Upload the reviewed source files here before treating this repository as a complete release.
+Open [http://127.0.0.1:8787](http://127.0.0.1:8787) on the PC. Keep this process running while using the relay.
 
-## License
+Install Tailscale on both devices, sign in to the same tailnet, then run this in another PC terminal:
 
-The MIT license applies only to original project code where the author has the right to license it. Third-party libraries, models, images, logos, and other assets remain under their own licenses.
+```sh
+tailscale serve 8787
+```
+
+Tailscale Serve prints the private HTTPS address. Enter that address in the phone app. Serve requires HTTPS to be enabled for the tailnet and makes the service available only to tailnet devices. See the [Tailscale Serve guide](https://tailscale.com/docs/features/tailscale-serve) and [Linux install guide](https://tailscale.com/docs/install/linux).
+
+## Build the Android app
+
+Open `android-relay` in Android Studio, let it sync the Gradle project, then choose **Build > Build APK(s)**. The repository also includes a manual GitHub Actions workflow named **Build Android relay APK** that produces a debug APK artifact.
+
+The app requires Android 10 or later. Android asks for screen-capture permission whenever a new stream starts. The stream stops when you tap **Stream stoppen**, revoke the Android projection, or stop the PC server. Android's [MediaProjection API](https://developer.android.com/media/platform/av-capture) requires this user approval.
+
+## Current relay limits
+
+- The first version sends screen frames as JPEG, up to 960 pixels on the longest edge and about six frames per second. It is a low-bandwidth preview, not a full-quality DJI video recording.
+- The PC keeps only the latest frame in memory; it does not save or upload footage.
+- A one-time code expires after five minutes and is limited to eight attempts. Pairing creates a random in-memory token. **Neuen Code anzeigen** on the PC revokes the old phone token.
+- The live view is shown in the local PC page. The Android relay app sends only the screen frames.
+- DJI lists the Goggles N3 as compatible with DJI Neo and documents a wired smartphone live view. The Galaxy A55 is not in DJI's recommended-device list, so the phone-to-goggles link needs a real-device check.
+
+See [DJI Goggles N3 support](https://www.dji.com/support/product/goggles-n3) and [DJI Fly downloads and compatible devices](https://www.dji.com/downloads/products/goggles-n3).
+
+## Project layout
+
+- `pc-relay/`: local Node.js receiver, pairing code, and PC live-view page
+- `android-relay/`: Android pairing app and user-approved screen capture service
+- `.github/workflows/build-relay-apk.yml`: manual debug APK build
+
+This is a new relay project. It does not contain the earlier ULTRON desktop app or bundled model assets.
