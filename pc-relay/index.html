@@ -36,13 +36,13 @@ async function drawPairQr(){
     const payload=JSON.stringify({type:'ultron-pair-v1',url,pin:pair.pin});
     if(!window.QRCode?.toCanvas)throw new Error('QR-Bibliothek nicht geladen. Prüfe die Internetverbindung am PC.');
     await QRCode.toCanvas(canvas,payload,{width:220,margin:2,errorCorrectionLevel:'M'});
-    canvas.style.display='block';note.textContent='Mit „QR scannen“ in der Handy-App verbinden.';
+    lastPairQrPayload=payload;canvas.style.display='block';note.textContent='Mit „QR scannen“ in der Handy-App verbinden.';
   }catch(error){canvas.style.display='none';note.textContent=error.message||'QR-Code konnte nicht erstellt werden.'}
 }
 async function refresh(){
   try{
     const [pair,status]=await Promise.all([fetch('/api/pairing',{cache:'no-store'}).then(r=>r.json()),fetch('/api/status',{cache:'no-store'}).then(r=>r.json())]);
-    $('pin').textContent=pair.pin||'······';\n    if($('serveUrl').value.trim())drawPairQr();
+    $('pin').textContent=pair.pin||'······';\n    if($('serveUrl').value.trim())drawPairQr(pair);
     $('pairedDot').classList.toggle('on',status.paired);
     $('pairedText').textContent=status.paired?'Handy gekoppelt · '+(status.frameNumber?'Bild kommt an':'warte auf Videobild'):pair.locked?'Zu viele Versuche · am PC neuen Code erzeugen':'Noch kein Handy verbunden';
     if(status.frameNumber){
