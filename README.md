@@ -8,7 +8,7 @@ The PC and phone must be connected to the same **private Wi-Fi network** or a pe
 
 1. Install Node.js 20+ in your user account.
 2. Extract the project folder.
-3. Run `bash start-ultron-no-admin.sh`. The first run downloads Micromamba and installs FFmpeg and COLMAP into your home folder; it does not use `sudo`.
+3. Run `bash start-ultron-no-admin.sh`. The first run downloads Micromamba and installs FFmpeg and COLMAP into your home folder; it does not use `sudo`. The relay accepts video files up to 20 GB by default and allows up to two hours for a slow upload. Both limits can be raised with `ULTRON_MAX_VIDEO_BYTES` and `ULTRON_REQUEST_TIMEOUT_MS`.
 4. Open `http://127.0.0.1:8787` on the PC. The page displays a QR code for the PC's private WLAN address.
 5. Scan the QR code in ULTRON Relay on the phone. Allow camera access for QR scanning, then allow Android screen sharing when you start the live preview.
 6. Connect the DJI Goggles N3 to the Galaxy phone with a USB-C data cable and open DJI Fly.
@@ -19,7 +19,7 @@ The QR and phone relay use plain HTTP only to the private LAN address. Use a tru
 
 The relay does not control the aircraft. Flight control stays with the DJI FPV Remote Controller 3 and goggles. Android screen capture streams the DJI Fly display to the PC after the user approves the system prompt.
 
-After the flight, use DJI Fly QuickTransfer to copy the Neo's original MP4 to the phone. In ULTRON Relay choose **Neo-Video für 3D an ULTRON senden**. FFmpeg extracts frames and COLMAP reconstructs a PLY mesh locally. The PC page shows an interactive viewer and offers the mesh for download. This is post-flight photogrammetry, not live 3D reconstruction or completion of unseen surfaces.
+After the flight, use DJI Fly QuickTransfer to copy the Neo's original MP4 to the phone. For large originals, copy the file to the PC and choose or drop it directly into the PC dashboard; that transfer stays on the PC and does not go through Wi-Fi. Alternatively, send the video from ULTRON Relay on the phone. FFmpeg extracts frames and COLMAP creates a PLY mesh when dense reconstruction is available. If dense meshing cannot run on the PC, ULTRON exports and previews the sparse 3D point cloud instead. This is post-flight photogrammetry, not live 3D reconstruction or a GPS map.
 
 For a good reconstruction, film the subject slowly from multiple overlapping angles, with good light and visible texture. The relay samples one frame per second to keep the COLMAP job manageable. Smooth or moving surfaces, fast pans, and short clips reduce quality. The interactive PLY preview loads its Three.js modules from the bundled PC files and works offline.
 
@@ -43,9 +43,9 @@ The app requires Android 10 or later. Android asks for screen-capture permission
 
 ## Troubleshooting
 
-- The QR generator and Three.js viewer are bundled and served locally by the PC relay, so QR creation and 3D preview work offline after extraction. Open the PC dashboard at `http://127.0.0.1:8787`; scan its displayed private-Wi-Fi address from the phone.
+- The QR generator and Three.js viewer are bundled and served locally by the PC relay. Open the dashboard on the PC at `http://127.0.0.1:8787` (not by its LAN IP); the QR uses the private Wi-Fi address selected in the address field. If the QR does not connect, pick another PC address from the field's suggestions and confirm that both devices are on the same non-guest Wi-Fi.
 - For microphone streaming, pair first, start **Handy-Mikrofon an ULTRON senden** in the app, grant Android microphone access, then click **PC-Mikrofon hören** on the PC. Error messages now appear in the app and on the PC page. This streams the phone's microphone; it does not capture audio from the Neo or Goggles.
-- For 3D processing, start the PC with `bash start-ultron-no-admin.sh`, which installs FFmpeg and COLMAP in the user account. Choose the original MP4 after DJI Fly QuickTransfer. Use a slow clip with at least eight clear, overlapping views. The result is a PLY 3D mesh, not a GPS map.
+- For 3D processing, start the PC with `bash start-ultron-no-admin.sh`, which installs FFmpeg and COLMAP in the user account. Choose the original MP4 after DJI Fly QuickTransfer; the dashboard allows up to 20 GB by default and shows upload progress. Use a slow clip with at least eight clear, overlapping views. ULTRON shows a PLY mesh or falls back to a PLY 3D point cloud if dense meshing is unavailable. Neither output is a GPS map.
 
 ## Privacy and limitations
 
