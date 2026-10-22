@@ -18,26 +18,31 @@ The relay does not control the aircraft. Flight control stays with the DJI FPV R
 
 ## Start the PC relay
 
-Requires Node.js 20 or later, FFmpeg, and a current COLMAP command-line installation (`colmap`).
+Requires Node.js 20 or later, FFmpeg, and a current COLMAP command-line installation (`colmap`). Install Tailscale on the PC and phone and sign in to the same tailnet.
+
+From the extracted project folder, start the PC relay:
 
 ```sh
-cd pc-relay
-npm start
+bash start-ultron.sh
 ```
+
+The script checks the required programs and opens the PC page. Keep its terminal running.
 
 Open [http://127.0.0.1:8787](http://127.0.0.1:8787) on the PC. Keep this process running while using the relay.
 
 Install Tailscale on both devices, sign in to the same tailnet, then run this in another PC terminal:
 
 ```sh
-tailscale serve 8787
+tailscale serve --bg 8787
 ```
+
+If Linux reports a permission error, retry as `sudo tailscale serve --bg 8787`. Copy the private HTTPS URL it prints into the Android app.
 
 Tailscale Serve prints the private HTTPS address. Enter that address in the phone app. Serve requires HTTPS to be enabled for the tailnet and makes the service available only to tailnet devices. See the [Tailscale Serve guide](https://tailscale.com/docs/features/tailscale-serve) and [Linux install guide](https://tailscale.com/docs/install/linux).
 
 ## Build the Android app
 
-Open `android-relay` in Android Studio, let it sync the Gradle project, then choose **Build > Build APK(s)**. The repository also includes a manual GitHub Actions workflow named **Build Android relay APK** that produces a debug APK artifact.
+Open `android-relay` in Android Studio, let it sync the Gradle project, then choose **Build > Build APK(s)**. The repository includes a GitHub Actions workflow named **Build Android relay APK**. After a successful run, its `ultron-relay-downloads` artifact contains both the installable debug APK and a clean source ZIP.
 
 The app requires Android 10 or later. Android asks for screen-capture permission whenever a new stream starts. The stream stops when you tap **Stream stoppen**, revoke the Android projection, or stop the PC server. Android's [MediaProjection API](https://developer.android.com/media/platform/av-capture) requires this user approval.
 
