@@ -7,6 +7,14 @@ android {
     namespace = "de.ultron.relay"
     compileSdk = 35
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     defaultConfig {
         applicationId = "de.ultron.relay"
         minSdk = 29
