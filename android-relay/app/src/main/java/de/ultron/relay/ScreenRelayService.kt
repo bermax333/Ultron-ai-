@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
@@ -60,7 +61,12 @@ class ScreenRelayService : Service() {
             intent.getParcelableExtra(EXTRA_RESULT_DATA)
         }
         if (baseUrl.isBlank() || authToken.isBlank() || resultData == null) { stopSelf(); return START_NOT_STICKY }
-        startForeground(NOTIFICATION_ID, buildNotification())
+        val notification = buildNotification()
+        if (Build.VERSION.SDK_INT >= 29) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
         beginProjection(resultCode, resultData)
         return START_NOT_STICKY
     }
@@ -84,6 +90,9 @@ class ScreenRelayService : Service() {
             handler = Handler(worker!!.looper)
             val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             projection = manager.getMediaProjection(resultCode, resultData)
+            projection?.registerCallback(object : MediaProjection.Callback() {
+                override fun onStop() { stopSelf() }
+            }, handler)
             val metrics = resources.displayMetrics
             val ratio = minOf(1.0, 960.0 / maxOf(metrics.widthPixels, metrics.heightPixels))
             val width = (metrics.widthPixels * ratio).toInt().coerceAtLeast(2)
@@ -95,9 +104,6 @@ class ScreenRelayService : Service() {
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 reader?.surface, null, handler
             )
-            projection?.registerCallback(object : MediaProjection.Callback() {
-                override fun onStop() { stopSelf() }
-            }, handler)
         } catch (_: Exception) {
             stopSelf()
         }
@@ -134,32 +140,24 @@ class ScreenRelayService : Service() {
 
     private fun imageToJpeg(image: Image): ByteArray? {
         val plane = image.planes.firstOrNull() ?: return null
-        val pixelStride = plane.pixelStride
-        val rowStride = plane.rowStride
-        val paddedWidth = rowStride / pixelStride
+        val paddedWidth = plane.rowStride / plane.pixelStride
         val padded = Bitmap.createBitmap(paddedWidth, image.height, Bitmap.Config.ARGB_8888)
         padded.copyPixelsFromBuffer(plane.buffer)
         val cropped = Bitmap.createBitmap(padded, 0, 0, image.width, image.height)
-        val scaledWidth: Int
-        val scaledHeight: Int
         val maxSide = 960
-        if (maxOf(cropped.width, cropped.height) > maxSide) {
-            val scale = maxSide.toFloat() / maxOf(cropped.width, cropped.height)
-            scaledWidth = (cropped.width * scale).toInt().coerceAtLeast(2)
-            scaledHeight = (cropped.height * scale).toInt().coerceAtLeast(2)
-        } else {
-            scaledWidth = cropped.width
-            scaledHeight = cropped.height
-        }
+        val scale = minOf(1f, maxSide.toFloat() / maxOf(cropped.width, cropped.height))
+        val scaledWidth = (cropped.width * scale).toInt().coerceAtLeast(2)
+        val scaledHeight = (cropped.height * scale).toInt().coerceAtLeast(2)
         val output = if (scaledWidth == cropped.width && scaledHeight == cropped.height) cropped
             else Bitmap.createScaledBitmap(cropped, scaledWidth, scaledHeight, true)
-        return ByteArrayOutputStream().use { stream ->
+        val jpeg = ByteArrayOutputStream().use { stream ->
             output.compress(Bitmap.CompressFormat.JPEG, 62, stream)
-            if (output !== cropped) output.recycle()
-            if (cropped !== padded) cropped.recycle()
-            padded.recycle()
             stream.toByteArray()
         }
+        if (output !== cropped) output.recycle()
+        if (cropped !== padded) cropped.recycle()
+        padded.recycle()
+        return jpeg
     }
 
     override fun onDestroy() {
