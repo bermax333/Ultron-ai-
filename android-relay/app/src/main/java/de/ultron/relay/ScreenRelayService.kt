@@ -112,7 +112,7 @@ class ScreenRelayService : Service() {
     private fun captureFrame(imageReader: ImageReader) {
         val image: Image = try { imageReader.acquireLatestImage() ?: return } catch (_: Exception) { return }
         val now = SystemClock.elapsedRealtime()
-        if (now - lastSentAt < 250 || !sending.compareAndSet(false, true)) { image.close(); return }
+        if (now - lastSentAt < 160 || !sending.compareAndSet(false, true)) { image.close(); return }
         lastSentAt = now
         val jpeg = try { imageToJpeg(image) } catch (_: Exception) { null } finally { image.close() }
         if (jpeg == null) { sending.set(false); return }
@@ -151,7 +151,7 @@ class ScreenRelayService : Service() {
         val output = if (scaledWidth == cropped.width && scaledHeight == cropped.height) cropped
             else Bitmap.createScaledBitmap(cropped, scaledWidth, scaledHeight, true)
         val jpeg = ByteArrayOutputStream().use { stream ->
-            output.compress(Bitmap.CompressFormat.JPEG, 62, stream)
+            output.compress(Bitmap.CompressFormat.JPEG, 55, stream)
             stream.toByteArray()
         }
         if (output !== cropped) output.recycle()
