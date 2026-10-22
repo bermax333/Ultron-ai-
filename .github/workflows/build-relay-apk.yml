@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/ultron-neo-relay
+      - download/ultron-neo-relay
     paths:
       - "android-relay/**"
       - ".github/workflows/build-relay-apk.yml"
