@@ -146,7 +146,15 @@ async function createSparsePreview(work) {
   const previewPath = path.join(work, 'ultron-punktwolke.ply');
   await run(process.env.ULTRON_COLMAP || 'colmap', ['model_converter', '--input_path', sparseDirectory, '--output_path', previewPath, '--output_type', 'PLY']);
   const stat = await fsp.stat(previewPath);
-  if (!stat.isFile() || stat.size < 100) throw new Error('COLMAP hat eine leere 3D-Punktwolke exportiert.');
+  const handle = await fsp.open(previewPath, 'r');
+  let header = '';
+  try {
+    const buffer = Buffer.alloc(4096);
+    const result = await handle.read(buffer, 0, buffer.length, 0);
+    header = buffer.subarray(0, result.bytesRead).toString('ascii');
+  } finally { await handle.close(); }
+  const vertexCount = Number(header.match(/\belement vertex (\d+)\b/)?.[1] || 0);
+  if (!stat.isFile() || stat.size < 100 || vertexCount < 1) throw new Error('COLMAP hat eine leere 3D-Punktwolke exportiert.');
   return previewPath;
 }
 async function reconstruct(job) {
@@ -171,7 +179,10 @@ async function reconstruct(job) {
   ];
   let modelPath = null;
   for (const candidate of candidates) {
-    try { await fsp.access(candidate); modelPath = candidate; break; } catch {}
+    try {
+      const stat = await fsp.stat(candidate);
+      if (stat.isFile() && stat.size > 100) { modelPath = candidate; break; }
+    } catch {}
   }
   if (modelPath) {
     job.state = 'done'; job.message = '3D-Mesh fertig.'; job.modelName = path.basename(modelPath); job.modelType = 'mesh'; job.modelPath = modelPath;
