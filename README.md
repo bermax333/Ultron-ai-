@@ -21,7 +21,7 @@ The relay does not control the aircraft. Flight control stays with the DJI FPV R
 
 After the flight, use DJI Fly QuickTransfer to copy the Neo's original MP4 to the phone. In ULTRON Relay choose **Neo-Video für 3D an ULTRON senden**. FFmpeg extracts frames and COLMAP reconstructs a PLY mesh locally. The PC page shows an interactive viewer and offers the mesh for download. This is post-flight photogrammetry, not live 3D reconstruction or completion of unseen surfaces.
 
-For a good reconstruction, film the subject slowly from multiple overlapping angles, with good light and visible texture. Smooth or moving surfaces and fast pans reduce quality.
+For a good reconstruction, film the subject slowly from multiple overlapping angles, with good light and visible texture. The relay samples one frame per second to keep the COLMAP job manageable. Smooth or moving surfaces, fast pans, and short clips reduce quality. The browser's interactive PLY preview needs an internet connection to load Three.js from its CDN.
 
 ## Requirements and manual setup
 
@@ -39,7 +39,7 @@ The dashboard is available on `http://127.0.0.1:8787`; the phone pairing QR uses
 
 Open `android-relay` in Android Studio, sync Gradle, then choose **Build > Build APK(s)**. The **Build Android relay APK** GitHub Actions workflow produces the installable debug APK and source ZIP as the `ultron-relay-downloads` artifact.
 
-The app requires Android 10 or later. Android asks for screen-capture permission whenever a new stream starts. The stream stops when you tap **Stream stoppen**, revoke the Android projection, or stop the PC server. The QR scanner uses the camera only when you tap **QR-Code scannen**.
+The app requires Android 10 or later. Android asks for screen-capture permission whenever a new screen stream starts. To send sound, tap **Handy-Mikrofon an ULTRON senden**, allow microphone access, then click **PC-Mikrofon hören** on the PC dashboard. Stop either stream with **Stream stoppen**. The microphone feature sends audio from the phone microphone only; it does not record sound from the Neo or goggles. The QR scanner uses the camera only when you tap **QR-Code scannen**.
 
 ## Privacy and limitations
 
